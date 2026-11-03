@@ -1,35 +1,28 @@
 import "package:flutter/material.dart";
-import "package:uth_room_booking/circle.dart";
-import "package:uth_room_booking/square.dart";
+import "package:uth_room_booking/navbar/footer.dart";
+import "package:uth_room_booking/navbar/header.dart";
 
-class HomePage extends StatelessWidget {
-  final List _post = ["Post 1", "Post 2", "Post 3", "Post 4", "Post 5"];
-  final List _stories = ["Story 1", "Story 2", "Story 3", "Story 4", "Story 5"];
+class HomePage extends StatefulWidget {
+  const HomePage({super.key});
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  int _index = 0;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Column(
-        children: [
-          Container(
-            height: 200,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              itemCount: _stories.length,
-              itemBuilder: (context, index) {
-                return MyCircle(child: _stories[index]);
-              },
-            ),
-          ),
-          Expanded(
-            child: ListView.builder(
-              itemCount: _post.length,
-              itemBuilder: (context, index) {
-                return MySquare(child: _post[index]);
-              },
-            ),
-          ),
-        ],
+      appBar: const MyHeader(
+        name: 'Trương Minh Khang',   // <-- điền tên SV/GV
+        id: '077205002739',          // <-- điền MSSV/MSGV
+      ),
+      body: Center(child: Text('Đang ở tab $_index')),
+      bottomNavigationBar: MyFooter(
+        currentIndex: _index,
+        onTap: (i) => setState(() => _index = i),
       ),
     );
   }
