@@ -16,8 +16,8 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: const MyHeader(
-        name: 'Trương Minh Khang',   // <-- điền tên SV/GV
-        id: '077205002739',          // <-- điền MSSV/MSGV
+        name: 'Trương Minh Khang', // <-- điền tên SV/GV
+        id: '077205002739', // <-- điền MSSV/MSGV
       ),
       body: Center(child: Text('Đang ở tab $_index')),
       bottomNavigationBar: MyFooter(

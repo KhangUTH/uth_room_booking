@@ -25,7 +25,7 @@ class MyHeader extends StatelessWidget implements PreferredSizeWidget {
         height: height + 45,
         width: double.infinity,
         color: Colors.teal,
-        
+
         child: SafeArea(
           child: Align(
             alignment: Alignment.topCenter,
@@ -37,7 +37,11 @@ class MyHeader extends StatelessWidget implements PreferredSizeWidget {
                   const CircleAvatar(
                     radius: 30,
                     backgroundColor: Color(0xFFE0E0E0),
-                    child: Icon(Icons.person_outline, size: 36, color: Colors.black),
+                    child: Icon(
+                      Icons.person_outline,
+                      size: 36,
+                      color: Colors.black,
+                    ),
                   ),
                   const SizedBox(width: 12),
 
@@ -74,8 +78,11 @@ class MyHeader extends StatelessWidget implements PreferredSizeWidget {
                     backgroundColor: const Color(0xFFE0E0E0),
                     child: IconButton(
                       padding: EdgeInsets.zero,
-                      icon: const Icon(Icons.notifications_none,
-                          size: 20, color: Colors.black),
+                      icon: const Icon(
+                        Icons.notifications_none,
+                        size: 20,
+                        color: Colors.black,
+                      ),
                       onPressed: onBellTap,
                     ),
                   ),
@@ -98,8 +105,10 @@ class _CurveClipper extends CustomClipper<Path> {
     final path = Path()
       ..lineTo(0, size.height - curve)
       ..quadraticBezierTo(
-        size.width / 2, size.height + curve, // điểm điều khiển
-        size.width, size.height - curve,     // điểm cuối
+        size.width / 2,
+        size.height + curve, // điểm điều khiển
+        size.width,
+        size.height - curve, // điểm cuối
       )
       ..lineTo(size.width, 0)
       ..close();

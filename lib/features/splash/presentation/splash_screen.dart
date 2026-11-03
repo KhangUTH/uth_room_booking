@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
+
 import 'package:uth_room_booking/homepage.dart';
 import 'package:flutter/material.dart';
 
@@ -29,9 +30,8 @@ class _SplashScreenState extends State<SplashScreen>
     _timer = Timer(const Duration(seconds: 3), () {
       if (!mounted) return;
       // TODO: đổi sang route của bạn
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const HomePage()),
-      );
+      Navigator.of(context)
+          .pushReplacement(MaterialPageRoute(builder: (_) => const HomePage()));
     });
   }
 
@@ -54,12 +54,13 @@ class _SplashScreenState extends State<SplashScreen>
           // 1. Nền PNG
           const ColoredBox(color: Colors.white),
           Align(
-            alignment: Alignment.topCenter, 
+            alignment: Alignment.topCenter,
             child: Image.asset(
-              'assets/images/splash/splash_top.jpg', 
-              fit: BoxFit.fitWidth, width: size.width,
-              ),
+              'assets/images/splash/splash_top.jpg',
+              fit: BoxFit.fitWidth,
+              width: size.width,
             ),
+          ),
 
           // 2. Logo tròn + vòng xoay
           Positioned(
@@ -127,11 +128,11 @@ class _SplashScreenState extends State<SplashScreen>
               ),
             ),
           ),
-          
+
           Align(
             alignment: Alignment.bottomCenter,
             child: Padding(
-              padding: EdgeInsets.only(bottom: size.height * 0.06), 
+              padding: EdgeInsets.only(bottom: size.height * 0.06),
               child: Image.asset(
                 'assets/images/splash/splash_school.jpg',
                 height: size.height * 0.55,
@@ -168,8 +169,14 @@ class _OuterRingPainter extends CustomPainter {
       ..color = const Color(0xFFB7D8D4)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.2;
-    _drawDashedCircle(canvas, center, r * 0.96, dashPaint,
-        dashCount: 90, dashRatio: 0.55);
+    _drawDashedCircle(
+      canvas,
+      center,
+      r * 0.96,
+      dashPaint,
+      dashCount: 90,
+      dashRatio: 0.55,
+    );
 
     // Cung đậm
     final arcPaint = Paint()
@@ -214,8 +221,14 @@ class _InnerRingPainter extends CustomPainter {
       ..color = const Color(0xFFC8E0DC)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.2;
-    _drawDashedCircle(canvas, center, r * 0.80, dashPaint,
-        dashCount: 70, dashRatio: 0.5);
+    _drawDashedCircle(
+      canvas,
+      center,
+      r * 0.80,
+      dashPaint,
+      dashCount: 70,
+      dashRatio: 0.5,
+    );
 
     final arcPaint = Paint()
       ..color = const Color(0xFFB4D6D1)
@@ -255,8 +268,14 @@ void _drawDashedCircle(
   }
 }
 
-void _drawDot(Canvas canvas, Offset center, double radius, double angle,
-    double dotRadius, Paint paint) {
+void _drawDot(
+  Canvas canvas,
+  Offset center,
+  double radius,
+  double angle,
+  double dotRadius,
+  Paint paint,
+) {
   final pos = Offset(
     center.dx + radius * math.cos(angle),
     center.dy + radius * math.sin(angle),
