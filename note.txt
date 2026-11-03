@@ -1,0 +1,3 @@
+Tạo tag mới để release sản phẩm:
+- git tag v0.0.0 (thay số 0 = 1 số khác phù hợp với phiên bản (version) cần xuất)
+- git push origin v0.0.0 (Đẩy lên Github Action để tạo bản release cho sản phẩm)
