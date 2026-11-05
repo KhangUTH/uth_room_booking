@@ -12,7 +12,7 @@ class DeviceListPage extends StatelessWidget {
       body: ListView.separated(
         padding: const EdgeInsets.all(16),
         itemCount: sampleDevices.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 8),
+        separatorBuilder: (context, index) => const SizedBox(height: 8),
         itemBuilder: (_, i) {
           final d = sampleDevices[i];
           return Card(

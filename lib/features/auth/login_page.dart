@@ -100,7 +100,7 @@ class _LoginPageState extends State<LoginPage> {
         Image.asset(
           'assets/images/splash/logo.jpg',
           height: 40,
-          errorBuilder: (_, __, ___) => const Text(
+          errorBuilder: (context, error, stackTrace) => const Text(
             'UTH',
             style: TextStyle(
               fontSize: 28,
@@ -199,7 +199,7 @@ class _LoginPageState extends State<LoginPage> {
       child: Image.asset(
         path,
         fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => Container(
+        errorBuilder: (context, error, stackTrace) => Container(
           color: const Color(0xFFD7EBE8),
           child: Icon(
             _isStudent ? Icons.school : Icons.person_pin,
