@@ -103,7 +103,10 @@ class _LoginPageState extends State<LoginPage> {
           errorBuilder: (_, __, ___) => const Text(
             'UTH',
             style: TextStyle(
-                fontSize: 28, fontWeight: FontWeight.bold, color: _teal),
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
+              color: _teal,
+            ),
           ),
         ),
         const SizedBox(height: 6),
@@ -122,17 +125,18 @@ class _LoginPageState extends State<LoginPage> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
         boxShadow: const [
-          BoxShadow(color: Colors.black12, blurRadius: 12, offset: Offset(0, 4)),
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 12,
+            offset: Offset(0, 4),
+          ),
         ],
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: _buildRoleTabs(),
-          ),
+          Padding(padding: const EdgeInsets.all(12), child: _buildRoleTabs()),
           _buildIllustration(),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
@@ -213,8 +217,10 @@ class _LoginPageState extends State<LoginPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Đăng nhập dành cho',
-              style: TextStyle(fontSize: 11, color: Colors.black54)),
+          const Text(
+            'Đăng nhập dành cho',
+            style: TextStyle(fontSize: 11, color: Colors.black54),
+          ),
           const SizedBox(height: 2),
           Text(
             _isStudent ? 'Sinh viên' : 'Giảng viên',
@@ -238,8 +244,8 @@ class _LoginPageState extends State<LoginPage> {
             ),
             validator: (v) => (v == null || v.trim().isEmpty)
                 ? (_isStudent
-                    ? 'Vui lòng nhập mã sinh viên'
-                    : 'Vui lòng nhập mã giáo viên')
+                      ? 'Vui lòng nhập mã sinh viên'
+                      : 'Vui lòng nhập mã giáo viên')
                 : null,
           ),
           const SizedBox(height: 12),
@@ -258,9 +264,8 @@ class _LoginPageState extends State<LoginPage> {
                 onPressed: () => setState(() => _obscure = !_obscure),
               ),
             ),
-            validator: (v) => (v == null || v.isEmpty)
-                ? 'Vui lòng nhập mật khẩu'
-                : null,
+            validator: (v) =>
+                (v == null || v.isEmpty) ? 'Vui lòng nhập mật khẩu' : null,
           ),
           const SizedBox(height: 8),
           Row(
@@ -284,8 +289,10 @@ class _LoginPageState extends State<LoginPage> {
                   minimumSize: const Size(0, 30),
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
-                child: const Text('Quên mật khẩu?',
-                    style: TextStyle(color: _teal, fontSize: 12)),
+                child: const Text(
+                  'Quên mật khẩu?',
+                  style: TextStyle(color: _teal, fontSize: 12),
+                ),
               ),
             ],
           ),
@@ -302,8 +309,10 @@ class _LoginPageState extends State<LoginPage> {
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              child: const Text('Đăng nhập',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+              child: const Text(
+                'Đăng nhập',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+              ),
             ),
           ),
           const SizedBox(height: 10),
@@ -319,25 +328,26 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Widget _label(String text) => Padding(
-        padding: const EdgeInsets.only(bottom: 6),
-        child: Text(text,
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
-      );
+    padding: const EdgeInsets.only(bottom: 6),
+    child: Text(
+      text,
+      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+    ),
+  );
 
   InputDecoration _inputDecoration(String hint) => InputDecoration(
-        hintText: hint,
-        hintStyle: const TextStyle(fontSize: 13, color: Colors.black38),
-        filled: true,
-        fillColor: _bg,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: _teal),
-        ),
-      );
+    hintText: hint,
+    hintStyle: const TextStyle(fontSize: 13, color: Colors.black38),
+    filled: true,
+    fillColor: _bg,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: BorderSide.none,
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: const BorderSide(color: _teal),
+    ),
+  );
 }

@@ -17,20 +17,13 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-
-
 class _HomePageState extends State<HomePage> {
   int _index = 0;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: _index == 3
-        ? null
-        : MyHeader(
-            name: widget.name,
-            id: widget.id,
-          ),
+      appBar: _index == 3 ? null : MyHeader(name: widget.name, id: widget.id),
       body: _buildBody(),
       bottomNavigationBar: MyFooter(
         currentIndex: _index,

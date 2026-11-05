@@ -11,9 +11,8 @@ class ProfilePage extends StatelessWidget {
   static const _cardBg = Color(0xFFF3F3F3);
 
   void _comingSoon(BuildContext context, String label) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$label: đang phát triển')),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text('$label: đang phát triển')));
   }
 
   Future<void> _confirmLogout(BuildContext context) async {
@@ -58,20 +57,36 @@ class ProfilePage extends StatelessWidget {
               children: [
                 _sectionTitle('Cá nhân'),
                 _card([
-                  _item(Icons.person_outline, 'Thông tin cá nhân',
-                      () => _comingSoon(context, 'Thông tin cá nhân')),
-                  _item(Icons.lock_outline, 'Đổi mật khẩu',
-                      () => _comingSoon(context, 'Đổi mật khẩu')),
-                  _item(Icons.notifications_none, 'Tùy chỉnh thông báo',
-                      () => _comingSoon(context, 'Tùy chỉnh thông báo')),
+                  _item(
+                    Icons.person_outline,
+                    'Thông tin cá nhân',
+                    () => _comingSoon(context, 'Thông tin cá nhân'),
+                  ),
+                  _item(
+                    Icons.lock_outline,
+                    'Đổi mật khẩu',
+                    () => _comingSoon(context, 'Đổi mật khẩu'),
+                  ),
+                  _item(
+                    Icons.notifications_none,
+                    'Tùy chỉnh thông báo',
+                    () => _comingSoon(context, 'Tùy chỉnh thông báo'),
+                  ),
                 ]),
                 const SizedBox(height: 20),
                 _sectionTitle('Khác'),
                 _card([
-                  _item(Icons.description_outlined, 'Điều khoản sử dụng',
-                      () => _comingSoon(context, 'Điều khoản sử dụng')),
-                  _item(Icons.logout, 'Đăng xuất', () => _confirmLogout(context),
-                      color: Colors.red),
+                  _item(
+                    Icons.description_outlined,
+                    'Điều khoản sử dụng',
+                    () => _comingSoon(context, 'Điều khoản sử dụng'),
+                  ),
+                  _item(
+                    Icons.logout,
+                    'Đăng xuất',
+                    () => _confirmLogout(context),
+                    color: Colors.red,
+                  ),
                 ]),
               ],
             ),
@@ -105,13 +120,19 @@ class ProfilePage extends StatelessWidget {
           Text(
             'Tên SV/GV: $name',
             style: const TextStyle(
-                color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           const SizedBox(height: 2),
           Text(
             'Mssv/msgv: $id',
             style: const TextStyle(
-                color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ],
       ),
@@ -119,26 +140,33 @@ class ProfilePage extends StatelessWidget {
   }
 
   Widget _sectionTitle(String text) => Padding(
-        padding: const EdgeInsets.only(bottom: 8, left: 2),
-        child: Text(
-          text,
-          style: const TextStyle(
-              color: _teal, fontSize: 18, fontWeight: FontWeight.bold),
-        ),
-      );
+    padding: const EdgeInsets.only(bottom: 8, left: 2),
+    child: Text(
+      text,
+      style: const TextStyle(
+        color: _teal,
+        fontSize: 18,
+        fontWeight: FontWeight.bold,
+      ),
+    ),
+  );
 
   Widget _card(List<Widget> children) => Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 6),
-        decoration: BoxDecoration(
-          color: _cardBg,
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Column(children: children),
-      );
+    width: double.infinity,
+    padding: const EdgeInsets.symmetric(vertical: 6),
+    decoration: BoxDecoration(
+      color: _cardBg,
+      borderRadius: BorderRadius.circular(14),
+    ),
+    child: Column(children: children),
+  );
 
-  Widget _item(IconData icon, String label, VoidCallback onTap,
-      {Color color = Colors.black87}) {
+  Widget _item(
+    IconData icon,
+    String label,
+    VoidCallback onTap, {
+    Color color = Colors.black87,
+  }) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(14),
@@ -151,7 +179,10 @@ class ProfilePage extends StatelessWidget {
             Text(
               label,
               style: TextStyle(
-                  fontSize: 14, fontWeight: FontWeight.w700, color: color),
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: color,
+              ),
             ),
           ],
         ),
