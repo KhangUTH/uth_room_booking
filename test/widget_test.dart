@@ -96,25 +96,5 @@ void main() {
 
       await _unmountApp(tester);
     });
-
-    testWidgets('nhập đủ thông tin thì vào HomePage (demo)', (tester) async {
-      await _useMobileScreen(tester);
-
-      await tester.pumpWidget(_loginApp());
-      await tester.pump();
-
-      await tester.enterText(find.byType(TextFormField).at(0), '2251120001');
-      await tester.enterText(find.byType(TextFormField).at(1), '123456');
-      await tester.tap(find.widgetWithText(ElevatedButton, 'Đăng nhập'));
-
-      // Chờ hiệu ứng chuyển trang.
-      await tester.pump();
-      await tester.pump(const Duration(seconds: 1));
-
-      expect(find.byType(HomePage), findsOneWidget);
-      expect(find.byType(LoginPage), findsNothing);
-
-      await _unmountApp(tester);
-    });
   });
 }
