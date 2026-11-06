@@ -1,11 +1,17 @@
 import "package:flutter/material.dart";
-import "package:uth_room_booking/features/auth/login_page.dart";
+import "package:uth_room_booking/features/auth/presentation/login_page.dart";
 
 class ProfilePage extends StatelessWidget {
   final String name;
   final String id;
+  final bool isTechnician;
 
-  const ProfilePage({super.key, required this.name, required this.id});
+  const ProfilePage({
+    super.key,
+    required this.name,
+    required this.id,
+    this.isTechnician = false,
+  });
 
   static const _teal = Color(0xFF0E7C7B);
   static const _cardBg = Color(0xFFF3F3F3);
@@ -118,7 +124,7 @@ class ProfilePage extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            'Tên SV/GV: $name',
+            '${isTechnician ? 'Tên KTV' : 'Tên SV/GV'}: $name',
             style: const TextStyle(
               color: Colors.white,
               fontSize: 12,
@@ -127,7 +133,7 @@ class ProfilePage extends StatelessWidget {
           ),
           const SizedBox(height: 2),
           Text(
-            'Mssv/msgv: $id',
+            '${isTechnician ? 'Mã KTV' : 'Mssv/msgv'}: $id',
             style: const TextStyle(
               color: Colors.white,
               fontSize: 12,

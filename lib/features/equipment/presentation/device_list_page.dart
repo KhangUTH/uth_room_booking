@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'models.dart';
+import '../data/sample_devices.dart';
 
 class DeviceListPage extends StatelessWidget {
   const DeviceListPage({super.key});

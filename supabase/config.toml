@@ -1,0 +1,6 @@
+# Local development only. No hosted project is linked by this configuration.
+project_id = "uth_room_booking"
+
+[db.seed]
+enabled = true
+sql_paths = ["./seed.sql"]

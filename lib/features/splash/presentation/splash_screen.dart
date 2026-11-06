@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:uth_room_booking/features/auth/login_page.dart';
+import 'package:uth_room_booking/features/auth/presentation/login_page.dart';
 import 'package:flutter/material.dart';
 
 class SplashScreen extends StatefulWidget {

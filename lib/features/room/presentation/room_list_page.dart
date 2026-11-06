@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'models.dart';
+import '../data/sample_rooms.dart';
 
 class RoomListPage extends StatelessWidget {
   const RoomListPage({super.key});

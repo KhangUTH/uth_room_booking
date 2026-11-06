@@ -1,0 +1,3 @@
+-- Development seed entry point.
+-- Add sample rooms/equipment after their schema migrations are implemented.
+-- Do not insert production data, passwords, or fabricated auth.users records.

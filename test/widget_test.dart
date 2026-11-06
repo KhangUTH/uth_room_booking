@@ -4,10 +4,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:uth_room_booking/main.dart';
 import 'package:uth_room_booking/theme/app_theme.dart';
 import 'package:uth_room_booking/features/splash/presentation/splash_screen.dart';
-import 'package:uth_room_booking/homepage.dart';
+import 'package:uth_room_booking/shared/layouts/homepage.dart';
 
-// TODO: sửa đường dẫn này cho đúng vị trí file login_page.dart của bạn.
-import 'package:uth_room_booking/features/auth/login_page.dart';
+import 'package:uth_room_booking/features/auth/presentation/login_page.dart';
 
 /// Màn hình điện thoại giả lập, đủ cao để không phải cuộn trong test.
 Future<void> _useMobileScreen(WidgetTester tester) async {

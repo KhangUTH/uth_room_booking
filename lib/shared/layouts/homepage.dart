@@ -1,11 +1,14 @@
 import "package:flutter/material.dart";
-import "package:uth_room_booking/navbar/footer.dart";
-import "package:uth_room_booking/navbar/header.dart";
-import "package:uth_room_booking/features/lists/models.dart";
-import "package:uth_room_booking/features/lists/preview_list_section.dart";
-import "package:uth_room_booking/features/lists/room_list_page.dart";
-import "package:uth_room_booking/features/lists/device_list_page.dart";
-import "package:uth_room_booking/features/profile/profile_page.dart";
+import "package:uth_room_booking/shared/layouts/footer.dart";
+import "package:uth_room_booking/shared/layouts/header.dart";
+import "package:uth_room_booking/features/room/models/room.dart";
+import "package:uth_room_booking/features/room/data/sample_rooms.dart";
+import "package:uth_room_booking/features/equipment/models/device.dart";
+import "package:uth_room_booking/features/equipment/data/sample_devices.dart";
+import "package:uth_room_booking/shared/widgets/preview_list_section.dart";
+import "package:uth_room_booking/features/room/presentation/room_list_page.dart";
+import "package:uth_room_booking/features/equipment/presentation/device_list_page.dart";
+import "package:uth_room_booking/features/profile/presentation/profile_page.dart";
 
 class HomePage extends StatefulWidget {
   final String name;
