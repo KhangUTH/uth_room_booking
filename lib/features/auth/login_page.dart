@@ -1,6 +1,7 @@
 import "package:flutter/material.dart";
 import "package:uth_room_booking/homepage.dart";
 import "package:uth_room_booking/theme/app_colors.dart";
+import "package:uth_room_booking/features/auth/technician_login_sheet.dart";
 
 enum UserRole { student, teacher }
 
@@ -24,6 +25,17 @@ class _LoginPageState extends State<LoginPage>
   bool _obscure = true;
 
   bool get _isStudent => _role == UserRole.student;
+
+  Future<void> _openTechnicianLogin() async {
+    final id = await showTechnicianLoginSheet(context);
+    if (id == null || !mounted) return;
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => HomePage(name: 'Kỹ thuật viên demo', id: id),
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -91,7 +103,7 @@ class _LoginPageState extends State<LoginPage>
                   ),
                   const SizedBox(height: 8),
                   TextButton(
-                    onPressed: () {}, // TODO: cổng dành cho kỹ thuật viên
+                    onPressed: _openTechnicianLogin, // TODO: cổng dành cho kỹ thuật viên
                     child: const Text(
                       'Cổng dành cho kỹ thuật viên',
                       style: TextStyle(
