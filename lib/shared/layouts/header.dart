@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:uth_room_booking/theme/app_colors.dart';
 
 class MyHeader extends StatelessWidget implements PreferredSizeWidget {
   final String name;
   final String id;
   final double height;
   final VoidCallback? onBellTap;
+  final String? title;
+  final IconData? titleIcon;
+  final bool supportIdentity;
 
   const MyHeader({
     super.key,
@@ -12,6 +16,9 @@ class MyHeader extends StatelessWidget implements PreferredSizeWidget {
     required this.id,
     this.height = 200,
     this.onBellTap,
+    this.title,
+    this.titleIcon,
+    this.supportIdentity = false,
   });
 
   @override
@@ -24,68 +31,94 @@ class MyHeader extends StatelessWidget implements PreferredSizeWidget {
       child: Container(
         height: height + 45,
         width: double.infinity,
-        color: Colors.teal,
+        color: AppColors.primary,
 
         child: SafeArea(
           child: Align(
             alignment: Alignment.topCenter,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 35, 16, 10),
-              child: Row(
+              padding: EdgeInsets.fromLTRB(
+                16,
+                supportIdentity ? 16 : 35,
+                16,
+                10,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Avatar
-                  const CircleAvatar(
-                    radius: 30,
-                    backgroundColor: Color(0xFFE0E0E0),
-                    child: Icon(
-                      Icons.person_outline,
-                      size: 36,
-                      color: Colors.black,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-
-                  // Thông tin
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'Tên: $name',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                          ),
+                  Row(
+                    children: [
+                      // Avatar
+                      const CircleAvatar(
+                        radius: 30,
+                        backgroundColor: Color(0xFFE0E0E0),
+                        child: Icon(
+                          Icons.person_outline,
+                          size: 36,
+                          color: Colors.black,
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'Mssv: $id',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // Nút chuông
-                  CircleAvatar(
-                    radius: 20,
-                    backgroundColor: const Color(0xFFE0E0E0),
-                    child: IconButton(
-                      padding: EdgeInsets.zero,
-                      icon: const Icon(
-                        Icons.notifications_none,
-                        size: 20,
-                        color: Colors.black,
                       ),
-                      onPressed: onBellTap,
-                    ),
+                      const SizedBox(width: 12),
+
+                      // Thông tin
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              '${supportIdentity ? 'Tên SV/GV' : 'Tên'}: $name',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '${supportIdentity ? 'MSSV/MSGV' : 'Mssv'}: $id',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // Nút chuông
+                      CircleAvatar(
+                        radius: 20,
+                        backgroundColor: const Color(0xFFE0E0E0),
+                        child: IconButton(
+                          padding: EdgeInsets.zero,
+                          icon: const Icon(
+                            Icons.notifications_none,
+                            size: 20,
+                            color: Colors.black,
+                          ),
+                          onPressed: onBellTap,
+                        ),
+                      ),
+                    ],
                   ),
+                  if (titleIcon != null) ...[
+                    const SizedBox(height: 8),
+                    Icon(titleIcon, color: Colors.white, size: 36),
+                  ],
+                  if (title != null) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      title!,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 21,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),

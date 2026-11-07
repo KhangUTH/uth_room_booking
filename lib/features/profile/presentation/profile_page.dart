@@ -1,16 +1,25 @@
 import "package:flutter/material.dart";
 import "package:uth_room_booking/features/auth/presentation/login_page.dart";
 
+import '../models/user_profile.dart';
+import 'personal_info_page.dart';
+
 class ProfilePage extends StatelessWidget {
   final String name;
   final String id;
   final bool isTechnician;
+  final UserProfile? profile;
+  final ValueChanged<UserProfile>? onProfileChanged;
+  final ValueChanged<int>? onTabChange;
 
   const ProfilePage({
     super.key,
     required this.name,
     required this.id,
     this.isTechnician = false,
+    this.profile,
+    this.onProfileChanged,
+    this.onTabChange,
   });
 
   static const _teal = Color(0xFF0E7C7B);
@@ -66,7 +75,19 @@ class ProfilePage extends StatelessWidget {
                   _item(
                     Icons.person_outline,
                     'Thông tin cá nhân',
-                    () => _comingSoon(context, 'Thông tin cá nhân'),
+                    () => Navigator.of(context).push(
+                      MaterialPageRoute<UserProfile>(
+                        builder: (_) => PersonalInfoPage(
+                          name: name,
+                          id: id,
+                          email: profile?.email ?? '',
+                          phone: profile?.phone ?? '',
+                          isTechnician: isTechnician,
+                          onSaved: onProfileChanged,
+                          onTabChange: onTabChange,
+                        ),
+                      ),
+                    ),
                   ),
                   _item(
                     Icons.lock_outline,
@@ -182,12 +203,14 @@ class ProfilePage extends StatelessWidget {
           children: [
             Icon(icon, size: 18, color: color),
             const SizedBox(width: 14),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: color,
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: color,
+                ),
               ),
             ),
           ],

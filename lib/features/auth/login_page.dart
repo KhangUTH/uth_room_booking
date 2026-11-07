@@ -2,6 +2,7 @@ import "package:flutter/material.dart";
 import "package:uth_room_booking/shared/layouts/homepage.dart";
 import "package:uth_room_booking/theme/app_colors.dart";
 import "package:uth_room_booking/features/auth/technician_login_sheet.dart";
+import "package:uth_room_booking/features/technician/presentation/technician_page.dart";
 
 enum UserRole { student, teacher }
 
@@ -32,7 +33,7 @@ class _LoginPageState extends State<LoginPage>
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
-        builder: (_) => HomePage(name: 'Kỹ thuật viên demo', id: id),
+        builder: (_) => TechnicianPage(name: 'Kỹ thuật viên demo', id: id),
       ),
     );
   }

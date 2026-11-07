@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:uth_room_booking/theme/app_colors.dart';
 
 class MyFooter extends StatelessWidget {
   final int currentIndex;
@@ -19,7 +20,7 @@ class MyFooter extends StatelessWidget {
       onTap: onTap,
       type: BottomNavigationBarType.fixed,
       backgroundColor: Colors.white,
-      selectedItemColor: Colors.teal,
+      selectedItemColor: AppColors.primary,
       unselectedItemColor: Colors.grey,
       showUnselectedLabels: true,
       items: isTechnician

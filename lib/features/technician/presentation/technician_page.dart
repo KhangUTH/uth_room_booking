@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:uth_room_booking/features/profile/presentation/profile_page.dart';
 import 'package:uth_room_booking/shared/layouts/footer.dart';
+import 'package:uth_room_booking/features/profile/models/user_profile.dart';
 
 import '../models/technician_task.dart';
 import 'technician_home_page.dart';
@@ -17,6 +18,7 @@ class TechnicianPage extends StatefulWidget {
 
 class _TechnicianPageState extends State<TechnicianPage> {
   int _index = 0;
+  late UserProfile _profile = UserProfile(fullName: widget.name, id: widget.id);
   late final List<TechnicianTask> _tasks = createSampleTechnicianTasks();
 
   void _refresh() => setState(() {});
@@ -28,25 +30,32 @@ class _TechnicianPageState extends State<TechnicianPage> {
         index: _index,
         children: [
           TechnicianHomePage(
-            name: widget.name,
-            id: widget.id,
+            name: _profile.fullName,
+            id: _profile.id,
             tasks: _tasks,
             onChanged: _refresh,
           ),
           TechnicianSchedulePage(
-            name: widget.name,
-            id: widget.id,
+            name: _profile.fullName,
+            id: _profile.id,
             tasks: _tasks,
             onChanged: _refresh,
           ),
           TechnicianHomePage(
-            name: widget.name,
-            id: widget.id,
+            name: _profile.fullName,
+            id: _profile.id,
             tasks: _tasks,
             onChanged: _refresh,
             incidentsOnly: true,
           ),
-          ProfilePage(name: widget.name, id: widget.id, isTechnician: true),
+          ProfilePage(
+            name: _profile.fullName,
+            id: _profile.id,
+            isTechnician: true,
+            profile: _profile,
+            onProfileChanged: (value) => setState(() => _profile = value),
+            onTabChange: (value) => setState(() => _index = value),
+          ),
         ],
       ),
     ),

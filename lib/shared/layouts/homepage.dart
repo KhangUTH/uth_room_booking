@@ -9,6 +9,9 @@ import "package:uth_room_booking/shared/widgets/preview_list_section.dart";
 import "package:uth_room_booking/features/room/presentation/room_list_page.dart";
 import "package:uth_room_booking/features/equipment/presentation/device_list_page.dart";
 import "package:uth_room_booking/features/profile/presentation/profile_page.dart";
+import "package:uth_room_booking/features/support/presentation/support_page.dart";
+import 'package:uth_room_booking/features/calendar/presentation/calendar_page.dart';
+import 'package:uth_room_booking/features/profile/models/user_profile.dart';
 
 class HomePage extends StatefulWidget {
   final String name;
@@ -22,12 +25,33 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   int _index = 0;
+  late UserProfile _profile = UserProfile(fullName: widget.name, id: widget.id);
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: _index == 3 ? null : MyHeader(name: widget.name, id: widget.id),
-      body: _buildBody(),
+      appBar: _index == 3 || _index == 2
+          ? null
+          : MyHeader(name: _profile.fullName, id: _profile.id),
+      body: IndexedStack(
+        index: _index,
+        children: [
+          _buildBody(),
+          const CalendarPage(),
+          SupportPage(
+            name: _profile.fullName,
+            id: _profile.id,
+            isActive: _index == 2,
+          ),
+          ProfilePage(
+            name: _profile.fullName,
+            id: _profile.id,
+            profile: _profile,
+            onProfileChanged: (value) => setState(() => _profile = value),
+            onTabChange: (value) => setState(() => _index = value),
+          ),
+        ],
+      ),
       bottomNavigationBar: MyFooter(
         currentIndex: _index,
         onTap: (i) => setState(() => _index = i),
@@ -36,14 +60,6 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildBody() {
-    if (_index == 3) {
-      return ProfilePage(name: widget.name, id: widget.id);
-    }
-    // Tab 0 = Trang chủ. Các tab khác giữ placeholder như cũ.
-    if (_index != 0) {
-      return Center(child: Text('Đang ở tab $_index'));
-    }
-
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(

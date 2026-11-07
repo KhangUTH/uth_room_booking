@@ -49,10 +49,21 @@ class PreviewListSection<T> extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(titleOf(item), style: const TextStyle(fontSize: 14)),
-                  Text(
-                    subtitleOf(item),
-                    style: const TextStyle(fontSize: 12, color: Colors.black54),
+                  Expanded(
+                    child: Text(
+                      titleOf(item),
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      subtitleOf(item),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.black54,
+                      ),
+                    ),
                   ),
                 ],
               ),
