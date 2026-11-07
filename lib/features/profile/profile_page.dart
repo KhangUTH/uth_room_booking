@@ -1,11 +1,18 @@
 import "package:flutter/material.dart";
 import "package:uth_room_booking/features/auth/login_page.dart";
+import "package:uth_room_booking/features/profile/personal_info_page.dart";
 
 class ProfilePage extends StatelessWidget {
   final String name;
   final String id;
+  final ValueChanged<int>? onTabChange;
 
-  const ProfilePage({super.key, required this.name, required this.id});
+  const ProfilePage({
+    super.key,
+    required this.name,
+    required this.id,
+    this.onTabChange,
+  });
 
   static const _teal = Color(0xFF0E7C7B);
   static const _cardBg = Color(0xFFF3F3F3);
@@ -60,7 +67,16 @@ class ProfilePage extends StatelessWidget {
                   _item(
                     Icons.person_outline,
                     'Thông tin cá nhân',
-                    () => _comingSoon(context, 'Thông tin cá nhân'),
+                    () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => PersonalInfoPage(
+                          name: name,
+                          id: id,
+                          onTabChange: onTabChange,
+                        ),
+                      ),
+                    ),
                   ),
                   _item(
                     Icons.lock_outline,

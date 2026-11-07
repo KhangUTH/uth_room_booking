@@ -6,6 +6,7 @@ import "package:uth_room_booking/features/lists/preview_list_section.dart";
 import "package:uth_room_booking/features/lists/room_list_page.dart";
 import "package:uth_room_booking/features/lists/device_list_page.dart";
 import "package:uth_room_booking/features/profile/profile_page.dart";
+import "package:uth_room_booking/features/calendar/calendar_page.dart";
 
 class HomePage extends StatefulWidget {
   final String name;
@@ -33,14 +34,26 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildBody() {
+    // Tab 3 = Tôi
     if (_index == 3) {
-      return ProfilePage(name: widget.name, id: widget.id);
+      return ProfilePage(
+        name: widget.name,
+        id: widget.id,
+        onTabChange: (i) => setState(() => _index = i),
+      );
     }
-    // Tab 0 = Trang chủ. Các tab khác giữ placeholder như cũ.
+
+    // Tab 1 = Lịch
+    if (_index == 1) {
+      return const CalendarPage();
+    }
+
+    // Tab 2 (Hỗ trợ) giữ placeholder
     if (_index != 0) {
       return Center(child: Text('Đang ở tab $_index'));
     }
 
+    // Tab 0 = Trang chủ
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
