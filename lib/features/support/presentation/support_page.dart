@@ -10,11 +10,15 @@ class SupportPage extends StatefulWidget {
   final String name;
   final String id;
   final bool isActive;
+  final VoidCallback? onClose;
+  final List<SupportRequest>? requests;
   const SupportPage({
     super.key,
     required this.name,
     required this.id,
     required this.isActive,
+    this.onClose,
+    this.requests,
   });
 
   @override
@@ -23,17 +27,24 @@ class SupportPage extends StatefulWidget {
 
 class _SupportPageState extends State<SupportPage> {
   int _section = 0;
-  final List<SupportRequest> _requests = [];
+  late final List<SupportRequest> _requests = widget.requests ?? [];
 
   void _save(SupportRequest request) => setState(() => _requests.add(request));
 
   @override
   Widget build(BuildContext context) => PopScope(
-    canPop: !widget.isActive || _section == 0,
+    canPop: !widget.isActive || (_section == 0 && widget.onClose == null),
     onPopInvokedWithResult: (didPop, result) {
-      if (!didPop && widget.isActive) setState(() => _section = 0);
+      if (!didPop && widget.isActive) {
+        if (_section == 0) {
+          widget.onClose?.call();
+        } else {
+          setState(() => _section = 0);
+        }
+      }
     },
     child: SafeArea(
+      top: false,
       child: IndexedStack(
         index: _section,
         children: [
@@ -71,6 +82,7 @@ class _SupportPageState extends State<SupportPage> {
     title: title,
     icon: icon,
     isCenter: isCenter,
+    onClose: isCenter ? widget.onClose : null,
     onBack: () => setState(() => _section = 0),
     child: child,
   );
@@ -176,7 +188,7 @@ class _SupportPageState extends State<SupportPage> {
             Padding(
               padding: EdgeInsets.all(16),
               child: Text(
-                'Vào Hỗ trợ → Báo cáo sự cố. Chọn loại sự cố, phòng và thiết bị liên quan, mô tả tình trạng và đính kèm ảnh nếu có.',
+                'Chọn tab Báo cáo ở thanh điều hướng. Chọn loại sự cố, phòng và thiết bị liên quan, mô tả tình trạng và đính kèm ảnh nếu có.',
               ),
             ),
           ],
@@ -187,7 +199,7 @@ class _SupportPageState extends State<SupportPage> {
             Padding(
               padding: EdgeInsets.all(16),
               child: Text(
-                'Vào Hỗ trợ → Liên hệ hỗ trợ. Điền họ tên, email và nội dung. Trong phiên bản thử nghiệm, yêu cầu được lưu dưới dạng bản mẫu trong phiên chạy.',
+                'Vào Tôi → Trung tâm hỗ trợ → Liên hệ hỗ trợ. Điền họ tên, email và nội dung. Trong phiên bản thử nghiệm, yêu cầu được lưu dưới dạng bản mẫu trong phiên chạy.',
               ),
             ),
           ],

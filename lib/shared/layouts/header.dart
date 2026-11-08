@@ -1,53 +1,72 @@
+import 'package:uth_room_booking/features/notifications/notifications.dart';
 import 'package:flutter/material.dart';
 import 'package:uth_room_booking/theme/app_colors.dart';
 
 class MyHeader extends StatelessWidget implements PreferredSizeWidget {
   final String name;
   final String id;
-  final double height;
+  final double? height;
   final VoidCallback? onBellTap;
   final String? title;
   final IconData? titleIcon;
   final bool supportIdentity;
+  final bool isTechnician;
+  final bool showBackButton;
+  final VoidCallback? onBack;
+  final String? subtitle;
+
+  static const double baseHeight = 140;
+  static const double curveDepth = 20;
 
   const MyHeader({
     super.key,
     required this.name,
     required this.id,
-    this.height = 200,
+    this.height,
     this.onBellTap,
     this.title,
     this.titleIcon,
     this.supportIdentity = false,
+    this.isTechnician = false,
+    this.showBackButton = false,
+    this.onBack,
+    this.subtitle,
   });
 
   @override
-  Size get preferredSize => Size.fromHeight(height);
+  Size get preferredSize => Size.fromHeight(
+    height ??
+        baseHeight +
+            (titleIcon == null ? 0 : 44) +
+            (title == null ? 0 : 12 + title!.split('\n').length * 26) +
+            (subtitle == null ? 0 : 22),
+  );
 
   @override
   Widget build(BuildContext context) {
     return ClipPath(
       clipper: _CurveClipper(),
       child: Container(
-        height: height + 45,
+        constraints: BoxConstraints(
+          minHeight: preferredSize.height + MediaQuery.paddingOf(context).top,
+        ),
         width: double.infinity,
         color: AppColors.primary,
 
         child: SafeArea(
+          bottom: false,
           child: Align(
+            heightFactor: 1,
             alignment: Alignment.topCenter,
             child: Padding(
-              padding: EdgeInsets.fromLTRB(
-                16,
-                supportIdentity ? 16 : 35,
-                16,
-                10,
-              ),
+              padding: const EdgeInsets.fromLTRB(16, 30, 16, 10),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Row(
                     children: [
+                      if (showBackButton)
+                        BackButton(color: Colors.white, onPressed: onBack),
                       // Avatar
                       const CircleAvatar(
                         radius: 30,
@@ -67,7 +86,13 @@ class MyHeader extends StatelessWidget implements PreferredSizeWidget {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
-                              '${supportIdentity ? 'Tên SV/GV' : 'Tên'}: $name',
+                              '${isTechnician
+                                  ? 'Tên KTV'
+                                  : supportIdentity
+                                  ? 'Tên SV/GV'
+                                  : 'Tên'}: $name',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.bold,
@@ -76,7 +101,13 @@ class MyHeader extends StatelessWidget implements PreferredSizeWidget {
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              '${supportIdentity ? 'MSSV/MSGV' : 'Mssv'}: $id',
+                              '${isTechnician
+                                  ? 'Mã KTV'
+                                  : supportIdentity
+                                  ? 'MSSV/MSGV'
+                                  : 'Mssv'}: $id',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.bold,
@@ -93,12 +124,14 @@ class MyHeader extends StatelessWidget implements PreferredSizeWidget {
                         backgroundColor: const Color(0xFFE0E0E0),
                         child: IconButton(
                           padding: EdgeInsets.zero,
+                          tooltip: 'Thông báo',
                           icon: const Icon(
                             Icons.notifications_none,
                             size: 20,
                             color: Colors.black,
                           ),
-                          onPressed: onBellTap,
+                          onPressed:
+                              onBellTap ?? () => openNotifications(context),
                         ),
                       ),
                     ],
@@ -119,6 +152,14 @@ class MyHeader extends StatelessWidget implements PreferredSizeWidget {
                       ),
                     ),
                   ],
+                  if (subtitle != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle!,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Colors.white, fontSize: 12),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -133,7 +174,7 @@ class MyHeader extends StatelessWidget implements PreferredSizeWidget {
 class _CurveClipper extends CustomClipper<Path> {
   @override
   Path getClip(Size size) {
-    const curve = 45.0; // độ cong, tăng số này để cong nhiều hơn
+    const curve = MyHeader.curveDepth;
 
     final path = Path()
       ..lineTo(0, size.height - curve)

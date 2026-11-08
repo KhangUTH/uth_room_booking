@@ -1,16 +1,22 @@
+import 'package:uth_room_booking/features/notifications/notifications.dart';
+import 'package:uth_room_booking/features/support/presentation/support_page.dart';
+import 'package:uth_room_booking/features/support/models/support_request.dart';
+import 'package:uth_room_booking/shared/layouts/header.dart';
 import "package:flutter/material.dart";
 import "package:uth_room_booking/features/auth/presentation/login_page.dart";
 
 import '../models/user_profile.dart';
 import 'personal_info_page.dart';
 
-class ProfilePage extends StatelessWidget {
+class ProfilePage extends StatefulWidget {
   final String name;
   final String id;
   final bool isTechnician;
   final UserProfile? profile;
   final ValueChanged<UserProfile>? onProfileChanged;
   final ValueChanged<int>? onTabChange;
+  final List<SupportRequest>? supportRequests;
+  final bool isActive;
 
   const ProfilePage({
     super.key,
@@ -20,7 +26,22 @@ class ProfilePage extends StatelessWidget {
     this.profile,
     this.onProfileChanged,
     this.onTabChange,
+    this.supportRequests,
+    this.isActive = true,
   });
+
+  @override
+  State<ProfilePage> createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends State<ProfilePage> {
+  bool _showSupport = false;
+  String get name => widget.name;
+  String get id => widget.id;
+  bool get isTechnician => widget.isTechnician;
+  UserProfile? get profile => widget.profile;
+  ValueChanged<UserProfile>? get onProfileChanged => widget.onProfileChanged;
+  ValueChanged<int>? get onTabChange => widget.onTabChange;
 
   static const _teal = Color(0xFF0E7C7B);
   static const _cardBg = Color(0xFFF3F3F3);
@@ -60,11 +81,20 @@ class ProfilePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (_showSupport) {
+      return SupportPage(
+        name: name,
+        id: id,
+        isActive: widget.isActive,
+        requests: widget.supportRequests,
+        onClose: () => setState(() => _showSupport = false),
+      );
+    }
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildHeader(context),
+          MyHeader(name: name, id: id, isTechnician: isTechnician),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
             child: Column(
@@ -77,14 +107,17 @@ class ProfilePage extends StatelessWidget {
                     'Thông tin cá nhân',
                     () => Navigator.of(context).push(
                       MaterialPageRoute<UserProfile>(
-                        builder: (_) => PersonalInfoPage(
-                          name: name,
-                          id: id,
-                          email: profile?.email ?? '',
-                          phone: profile?.phone ?? '',
-                          isTechnician: isTechnician,
-                          onSaved: onProfileChanged,
-                          onTabChange: onTabChange,
+                        builder: (_) => NotificationScope(
+                          controller: NotificationScope.maybeOf(context),
+                          child: PersonalInfoPage(
+                            name: name,
+                            id: id,
+                            email: profile?.email ?? '',
+                            phone: profile?.phone ?? '',
+                            isTechnician: isTechnician,
+                            onSaved: onProfileChanged,
+                            onTabChange: onTabChange,
+                          ),
                         ),
                       ),
                     ),
@@ -97,12 +130,20 @@ class ProfilePage extends StatelessWidget {
                   _item(
                     Icons.notifications_none,
                     'Tùy chỉnh thông báo',
-                    () => _comingSoon(context, 'Tùy chỉnh thông báo'),
+                    () => isTechnician
+                        ? openNotificationSettings(context)
+                        : openNotifications(context),
                   ),
                 ]),
                 const SizedBox(height: 20),
                 _sectionTitle('Khác'),
                 _card([
+                  if (!isTechnician)
+                    _item(
+                      Icons.support_agent_outlined,
+                      'Trung tâm hỗ trợ',
+                      () => setState(() => _showSupport = true),
+                    ),
                   _item(
                     Icons.description_outlined,
                     'Điều khoản sử dụng',
@@ -116,49 +157,6 @@ class ProfilePage extends StatelessWidget {
                   ),
                 ]),
               ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHeader(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
-    final topInset = MediaQuery.of(context).padding.top;
-
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.fromLTRB(16, topInset + 24, 16, 36),
-      decoration: BoxDecoration(
-        color: _teal,
-        borderRadius: BorderRadius.vertical(
-          bottom: Radius.elliptical(width / 2, 60),
-        ),
-      ),
-      child: Column(
-        children: [
-          const CircleAvatar(
-            radius: 36,
-            backgroundColor: Color(0xFFE0E0E0),
-            child: Icon(Icons.person_outline, size: 44, color: Colors.black87),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            '${isTechnician ? 'Tên KTV' : 'Tên SV/GV'}: $name',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            '${isTechnician ? 'Mã KTV' : 'Mssv/msgv'}: $id',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
             ),
           ),
         ],

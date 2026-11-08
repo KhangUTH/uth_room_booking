@@ -9,6 +9,7 @@ class SupportLayout extends StatelessWidget {
   final IconData icon;
   final bool isCenter;
   final VoidCallback? onBack;
+  final VoidCallback? onClose;
   final Widget child;
 
   const SupportLayout({
@@ -20,6 +21,7 @@ class SupportLayout extends StatelessWidget {
     required this.child,
     this.isCenter = false,
     this.onBack,
+    this.onClose,
   });
 
   @override
@@ -29,19 +31,13 @@ class SupportLayout extends StatelessWidget {
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       child: Column(
         children: [
-          SizedBox(
-            height: isCenter ? 255 : 175,
-            child: MyHeader(
-              name: name,
-              id: id,
-              height: isCenter ? 255 : 175,
-              supportIdentity: true,
-              titleIcon: icon,
-              title: isCenter ? title : null,
-              onBellTap: () => ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Bạn chưa có thông báo mới.')),
-              ),
-            ),
+          MyHeader(
+            showBackButton: onClose != null,
+            onBack: onClose,
+            name: name,
+            id: id,
+            titleIcon: icon,
+            title: isCenter ? title : null,
           ),
           Center(
             child: ConstrainedBox(

@@ -26,6 +26,7 @@ class TechnicianSchedulePage extends StatefulWidget {
 class _TechnicianSchedulePageState extends State<TechnicianSchedulePage> {
   DateTime _selectedDate = DateUtils.dateOnly(DateTime.now());
   int _filter = 0;
+  bool _unfinishedOnly = false;
 
   @override
   Widget build(BuildContext context) {
@@ -34,17 +35,11 @@ class _TechnicianSchedulePageState extends State<TechnicianSchedulePage> {
     );
     final tasks = widget.tasks.where((t) {
       if (t.status == TaskStatus.pending) return false;
-      return switch (_filter) {
-        1 =>
-          t.status != TaskStatus.completed &&
-              t.scheduledAt.isAfter(DateTime.now()),
-        2 =>
-          t.status == TaskStatus.completed &&
-              DateUtils.isSameDay(t.scheduledAt, _selectedDate),
-        _ =>
-          t.status != TaskStatus.completed &&
-              DateUtils.isSameDay(t.scheduledAt, _selectedDate),
-      };
+      if (_unfinishedOnly && t.status == TaskStatus.completed) return false;
+      return _filter == 1
+          ? t.status != TaskStatus.completed &&
+                t.scheduledAt.isAfter(DateTime.now())
+          : DateUtils.isSameDay(t.scheduledAt, _selectedDate);
     }).toList()..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
 
     return SingleChildScrollView(
@@ -73,7 +68,7 @@ class _TechnicianSchedulePageState extends State<TechnicianSchedulePage> {
                         _filter = 0;
                       }),
                       icon: const Icon(Icons.today, size: 16),
-                      label: const Text('Tuần này'),
+                      label: const Text('Hôm nay'),
                     ),
                     IconButton(
                       tooltip: 'Chọn ngày',
@@ -167,7 +162,7 @@ class _TechnicianSchedulePageState extends State<TechnicianSchedulePage> {
                   ),
                   child: Row(
                     children: List.generate(
-                      3,
+                      2,
                       (index) => Expanded(
                         child: TextButton(
                           style: TextButton.styleFrom(
@@ -187,20 +182,31 @@ class _TechnicianSchedulePageState extends State<TechnicianSchedulePage> {
                           ),
                           onPressed: () => setState(() {
                             _filter = index;
-                            if (index == 0) {
-                              _selectedDate = DateUtils.dateOnly(
-                                DateTime.now(),
-                              );
-                            }
                           }),
                           child: Text(
-                            ['Hôm nay', 'Sắp tới', 'Hoàn tất'][index],
+                            ['Theo ngày', 'Sắp tới'][index],
                             style: const TextStyle(fontSize: 12),
                           ),
                         ),
                       ),
                     ),
                   ),
+                ),
+                const SizedBox(height: 12),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: FilterChip(
+                    label: const Text('Chưa hoàn tất'),
+                    selected: _unfinishedOnly,
+                    onSelected: (value) =>
+                        setState(() => _unfinishedOnly = value),
+                  ),
+                ),
+                Text(
+                  _filter == 1
+                      ? 'Công việc sắp tới'
+                      : 'Lịch ngày ${_selectedDate.day}/${_selectedDate.month}/${_selectedDate.year}',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 12),
                 if (tasks.isEmpty)

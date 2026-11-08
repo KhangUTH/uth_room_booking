@@ -1,3 +1,4 @@
+import 'package:uth_room_booking/shared/layouts/header.dart';
 import 'package:flutter/material.dart';
 import 'package:uth_room_booking/shared/layouts/footer.dart';
 import 'package:uth_room_booking/theme/app_colors.dart';
@@ -124,15 +125,11 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
       backgroundColor: Colors.white,
       body: Column(
         children: [
-          Stack(
-            children: [
-              _Header(
-                name: shownName,
-                id: shownId,
-                isTechnician: widget.isTechnician,
-              ),
-              SafeArea(child: BackButton(color: Colors.white)),
-            ],
+          MyHeader(
+            name: shownName,
+            id: shownId,
+            isTechnician: widget.isTechnician,
+            showBackButton: true,
           ),
           Expanded(
             child: SingleChildScrollView(
@@ -199,10 +196,10 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
         ],
       ),
       bottomNavigationBar: MyFooter(
-        currentIndex: 3,
+        currentIndex: widget.isTechnician ? 2 : 3,
         isTechnician: widget.isTechnician,
         onTap: (i) {
-          if (i == 3) return;
+          if (i == (widget.isTechnician ? 2 : 3)) return;
           Navigator.pop(context, _profile);
           widget.onTabChange?.call(i);
         },
@@ -252,62 +249,6 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
             tooltip: 'Xóa $hint',
             icon: const Icon(Icons.delete_outline),
             onPressed: () => setState(ctrl.clear),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Header extends StatelessWidget {
-  final String name;
-  final String id;
-  final bool isTechnician;
-
-  const _Header({
-    required this.name,
-    required this.id,
-    required this.isTechnician,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
-    final topInset = MediaQuery.of(context).padding.top;
-
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.fromLTRB(16, topInset + 24, 16, 36),
-      decoration: BoxDecoration(
-        color: AppColors.primary,
-        borderRadius: BorderRadius.vertical(
-          bottom: Radius.elliptical(width / 2, 60),
-        ),
-      ),
-      child: Column(
-        children: [
-          const CircleAvatar(
-            radius: 36,
-            backgroundColor: Color(0xFFE0E0E0),
-            child: Icon(Icons.person_outline, size: 44, color: Colors.black87),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            '${isTechnician ? 'Tên KTV' : 'Tên SV/GV'}: $name',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            '${isTechnician ? 'Mã KTV' : 'Mssv/msgv'}: $id',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
           ),
         ],
       ),

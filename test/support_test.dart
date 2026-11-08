@@ -12,7 +12,7 @@ Future<void> tapVisible(WidgetTester tester, Finder finder) async {
   await tester.pumpAndSettle();
 }
 
-Future<void> openSupport(WidgetTester tester) async {
+Future<void> openStudentHome(WidgetTester tester) async {
   await tester.binding.setSurfaceSize(const Size(320, 800));
   addTearDown(() => tester.binding.setSurfaceSize(null));
   await tester.pumpWidget(
@@ -21,7 +21,16 @@ Future<void> openSupport(WidgetTester tester) async {
       home: const HomePage(name: 'Nguyễn An', id: 'SV001'),
     ),
   );
-  await tester.tap(find.text('Hỗ trợ'));
+  await tester.pumpAndSettle();
+}
+
+Future<void> openSupport(WidgetTester tester) async {
+  await openStudentHome(tester);
+  await tester.tap(find.text('Tôi'));
+  await tester.pumpAndSettle();
+  if (find.text('Trung tâm hỗ trợ').evaluate().isNotEmpty) {
+    await tapVisible(tester, find.text('Trung tâm hỗ trợ'));
+  }
   await tester.pumpAndSettle();
 }
 
@@ -71,7 +80,11 @@ void main() {
     await tapVisible(tester, find.text('Đã hiểu'));
     await tester.tap(find.text('Home'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Hỗ trợ'));
+    await tester.tap(find.text('Tôi'));
+    await tester.pumpAndSettle();
+    if (find.text('Trung tâm hỗ trợ').evaluate().isNotEmpty) {
+      await tapVisible(tester, find.text('Trung tâm hỗ trợ'));
+    }
     await tester.pumpAndSettle();
     expect(find.text('an@example.com'), findsOneWidget);
     await tapVisible(tester, find.byTooltip('Về trung tâm hỗ trợ'));
@@ -84,8 +97,9 @@ void main() {
   testWidgets(
     'báo cáo phòng yêu cầu loại, phòng, mô tả và không bắt buộc ảnh',
     (tester) async {
-      await openSupport(tester);
-      await tapVisible(tester, find.text('Báo cáo sự cố'));
+      await openStudentHome(tester);
+      await tester.tap(find.text('Báo cáo'));
+      await tester.pumpAndSettle();
       await tapVisible(
         tester,
         find.widgetWithText(ElevatedButton, 'Báo cáo sự cố'),
@@ -106,6 +120,13 @@ void main() {
         find.widgetWithText(ElevatedButton, 'Báo cáo sự cố'),
       );
       expect(find.text('Đã lưu bản mẫu'), findsOneWidget);
+      await tapVisible(tester, find.text('Đã hiểu'));
+      await tester.tap(find.text('Tôi'));
+      await tester.pumpAndSettle();
+      await tapVisible(tester, find.text('Trung tâm hỗ trợ'));
+      await tapVisible(tester, find.text('Bản mẫu đã lưu (1)'));
+      await tapVisible(tester, find.text('Báo cáo sự cố').last);
+      expect(find.text('Mô tả: Đèn trong phòng không sáng.'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );
@@ -119,6 +140,12 @@ void main() {
     );
     expect(find.text('Hỗ trợ'), findsNothing);
     expect(find.byType(SupportPage, skipOffstage: false), findsNothing);
-    expect(find.text('Sự cố'), findsOneWidget);
+    expect(
+      tester
+          .widget<BottomNavigationBar>(find.byType(BottomNavigationBar))
+          .items
+          .length,
+      3,
+    );
   });
 }

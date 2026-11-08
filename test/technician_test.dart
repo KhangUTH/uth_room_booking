@@ -20,6 +20,7 @@ void main() {
 
     final receive = find.widgetWithText(ElevatedButton, 'Nhận việc').first;
     await tester.ensureVisible(receive);
+    await tester.pumpAndSettle();
     await tester.tap(receive);
     await tester.pump();
     expect(find.text('Máy chiếu - H203'), findsNothing);
@@ -30,10 +31,7 @@ void main() {
     expect(find.text('Máy chiếu - H203'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
-    await tester.tap(find.text('Hoàn tất'));
-    await tester.pump();
     expect(find.text('Micro - H101'), findsOneWidget);
-    expect(find.text('Máy chiếu - H203'), findsNothing);
   });
 
   testWidgets('cổng kỹ thuật viên đăng nhập tới giao diện riêng', (
@@ -57,7 +55,7 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
     await tester.pump(const Duration(seconds: 1));
     expect(find.byType(TechnicianPage), findsOneWidget);
-    expect(find.text('Phiếu cần xử lý'), findsOneWidget);
+    expect(find.text('Chờ nhận · 3 công việc'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });

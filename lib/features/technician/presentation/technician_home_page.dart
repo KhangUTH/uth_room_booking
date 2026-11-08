@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:uth_room_booking/theme/app_colors.dart';
 
 import '../models/technician_task.dart';
+import '../models/task_filter.dart';
 import '../widgets/task_details.dart';
 import '../widgets/technician_header.dart';
 
@@ -10,7 +11,6 @@ class TechnicianHomePage extends StatefulWidget {
   final String id;
   final List<TechnicianTask> tasks;
   final VoidCallback onChanged;
-  final bool incidentsOnly;
 
   const TechnicianHomePage({
     super.key,
@@ -18,7 +18,6 @@ class TechnicianHomePage extends StatefulWidget {
     required this.id,
     required this.tasks,
     required this.onChanged,
-    this.incidentsOnly = false,
   });
 
   @override
@@ -26,129 +25,106 @@ class TechnicianHomePage extends StatefulWidget {
 }
 
 class _TechnicianHomePageState extends State<TechnicianHomePage> {
+  TaskFilter? _filter = TaskFilter.pending;
+  int _type = 0;
   String _query = '';
   bool _urgentOnly = false;
   bool _todayOnly = false;
-  bool _maintenanceOnly = false;
-  bool _showAll = false;
+  bool _showExtraFilters = false;
+
+  void _refresh() {
+    widget.onChanged();
+    setState(() {});
+  }
 
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
-    final pending = widget.tasks.where((t) => t.status == TaskStatus.pending);
-    final filtered = widget.tasks.where((t) {
-      final matchesType = widget.incidentsOnly
-          ? !t.isMaintenance
-          : t.status == TaskStatus.pending;
-      return matchesType &&
-          (!_urgentOnly || t.priority == TaskPriority.urgent) &&
-          (!_todayOnly || DateUtils.isSameDay(t.scheduledAt, now)) &&
-          (!_maintenanceOnly || t.isMaintenance) &&
-          '${t.title} ${t.location} ${t.description}'.toLowerCase().contains(
-            _query.toLowerCase(),
+    final tasks =
+        widget.tasks
+            .where(
+              (task) =>
+                  (_filter == null || _filter!.matches(task, now)) &&
+                  (_type == 0 ||
+                      (_type == 2
+                          ? task.isMaintenance
+                          : !task.isMaintenance)) &&
+                  (!_urgentOnly || task.priority == TaskPriority.urgent) &&
+                  (!_todayOnly || DateUtils.isSameDay(task.scheduledAt, now)) &&
+                  '${task.title} ${task.location} ${task.description} ${task.reporter}'
+                      .toLowerCase()
+                      .contains(_query),
+            )
+            .toList()
+          ..sort(
+            (a, b) => _filter == TaskFilter.completed
+                ? b.scheduledAt.compareTo(a.scheduledAt)
+                : a.scheduledAt.compareTo(b.scheduledAt),
           );
-    }).toList();
-    final visible = _showAll ? filtered : filtered.take(3).toList();
-
-    return SingleChildScrollView(
-      child: Column(
-        children: [
-          TechnicianHeader(
-            name: widget.name,
-            id: widget.id,
-            title: widget.incidentsOnly ? 'Phiếu sự cố' : null,
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16),
+    return CustomScrollView(
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      slivers: [
+        SliverToBoxAdapter(
+          child: TechnicianHeader(name: widget.name, id: widget.id),
+        ),
+        SliverPadding(
+          padding: const EdgeInsets.all(16),
+          sliver: SliverToBoxAdapter(
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                if (!widget.incidentsOnly) ...[
-                  GridView.count(
-                    crossAxisCount: 2,
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    crossAxisSpacing: 10,
-                    mainAxisSpacing: 10,
-                    childAspectRatio: 1.6,
+                LayoutBuilder(
+                  builder: (context, constraints) => Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
                     children: [
-                      _stat('Chờ nhận', pending.length),
-                      _stat(
-                        'Đang sửa',
-                        widget.tasks
-                            .where(
-                              (t) =>
-                                  t.status == TaskStatus.accepted ||
-                                  t.status == TaskStatus.inProgress,
-                            )
-                            .length,
-                      ),
-                      _stat(
-                        'Đã xong',
-                        widget.tasks
-                            .where((t) => t.status == TaskStatus.completed)
-                            .length,
-                      ),
-                      _stat(
-                        'Quá hạn',
-                        widget.tasks
-                            .where(
-                              (t) =>
-                                  t.status != TaskStatus.completed &&
-                                  t.scheduledAt.isBefore(now),
-                            )
-                            .length,
-                      ),
+                      for (final filter in TaskFilter.values)
+                        SizedBox(
+                          width: (constraints.maxWidth - 10) / 2,
+                          child: _stat(
+                            filter,
+                            widget.tasks
+                                .where((t) => filter.matches(t, now))
+                                .length,
+                          ),
+                        ),
                     ],
                   ),
-                  const SizedBox(height: 16),
-                ],
+                ),
+                const SizedBox(height: 16),
                 Row(
                   children: [
                     Expanded(
                       child: TextField(
                         onChanged: (value) =>
-                            setState(() => _query = value.trim()),
+                            setState(() => _query = value.trim().toLowerCase()),
                         decoration: const InputDecoration(
-                          hintText: 'Tìm kiếm phiếu/phòng/thiết bị',
+                          hintText: 'Tìm công việc…',
                           prefixIcon: Icon(Icons.search),
-                          contentPadding: EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 10,
-                          ),
                         ),
                       ),
                     ),
-                    if (!widget.incidentsOnly)
-                      IconButton(
-                        tooltip: 'Chỉ hiện bảo trì',
-                        isSelected: _maintenanceOnly,
-                        onPressed: () => setState(
-                          () => _maintenanceOnly = !_maintenanceOnly,
-                        ),
-                        icon: const Icon(Icons.filter_alt_outlined),
-                        selectedIcon: const Icon(
-                          Icons.filter_alt,
-                          color: AppColors.primary,
-                        ),
+                    IconButton(
+                      tooltip: 'Lọc thêm',
+                      isSelected: _showExtraFilters,
+                      onPressed: () => setState(
+                        () => _showExtraFilters = !_showExtraFilters,
                       ),
+                      icon: Icon(
+                        Icons.filter_alt_outlined,
+                        color: _urgentOnly || _todayOnly
+                            ? AppColors.primary
+                            : null,
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 8),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Wrap(
+                if (_showExtraFilters)
+                  Wrap(
                     spacing: 8,
+                    runSpacing: 4,
                     children: [
-                      ChoiceChip(
-                        label: const Text('Tất cả'),
-                        selected:
-                            !_urgentOnly && !_todayOnly && !_maintenanceOnly,
-                        onSelected: (_) => setState(() {
-                          _urgentOnly = false;
-                          _todayOnly = false;
-                          _maintenanceOnly = false;
-                        }),
-                      ),
                       FilterChip(
                         label: const Text('Khẩn'),
                         selected: _urgentOnly,
@@ -163,76 +139,112 @@ class _TechnicianHomePageState extends State<TechnicianHomePage> {
                       ),
                     ],
                   ),
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE8EDEC),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Column(
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              widget.incidentsOnly
-                                  ? 'Danh sách sự cố'
-                                  : 'Phiếu cần xử lý',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                          TextButton(
-                            onPressed: () =>
-                                setState(() => _showAll = !_showAll),
-                            child: Text(_showAll ? 'Thu gọn' : 'Xem tất cả'),
-                          ),
-                        ],
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: [
+                    for (var index = 0; index < 3; index++)
+                      ChoiceChip(
+                        key: ValueKey('task-type-$index'),
+                        label: Text(['Mọi loại', 'Sự cố', 'Bảo trì'][index]),
+                        selected: _type == index,
+                        onSelected: (_) => setState(() => _type = index),
                       ),
-                      if (visible.isEmpty)
-                        const Padding(
-                          padding: EdgeInsets.all(20),
-                          child: Text('Không có phiếu phù hợp.'),
-                        ),
-                      for (final task in visible) _ticket(task),
-                    ],
-                  ),
+                  ],
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '${_filter?.label ?? 'Tất cả trạng thái'} · ${tasks.length} công việc',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () => setState(() => _filter = null),
+                      child: const Text('Tất cả'),
+                    ),
+                  ],
+                ),
+                if (_filter == TaskFilter.overdue) ...[
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Đã qua thời gian dự kiến và chưa hoàn tất.',
+                    style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+                  ),
+                ],
               ],
             ),
           ),
-        ],
-      ),
+        ),
+        if (tasks.isEmpty)
+          const SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: Center(child: Text('Không có công việc phù hợp.')),
+            ),
+          )
+        else
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            sliver: SliverList.builder(
+              itemCount: tasks.length,
+              itemBuilder: (context, index) => _ticket(tasks[index]),
+            ),
+          ),
+      ],
     );
   }
 
-  Widget _stat(String title, int count) => Container(
-    padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(
-      color: const Color(0xFF5C9F9C),
-      borderRadius: BorderRadius.circular(10),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Text(title, style: const TextStyle(color: Colors.white, fontSize: 12)),
-        Text(
-          '$count',
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
+  Widget _stat(TaskFilter filter, int count) {
+    final selected = _filter == filter;
+    return Semantics(
+      selected: selected,
+      button: true,
+      child: Material(
+        color: selected ? AppColors.primary : const Color(0xFF5C9F9C),
+        borderRadius: BorderRadius.circular(10),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          key: ValueKey('task-stat-${filter.name}'),
+          onTap: () => setState(() => _filter = filter),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  filter.label,
+                  style: const TextStyle(color: Colors.white, fontSize: 12),
+                ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '$count',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    if (selected)
+                      const Icon(
+                        Icons.check_circle_outline,
+                        size: 18,
+                        color: Colors.white,
+                      ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
-      ],
-    ),
-  );
+      ),
+    );
+  }
 
   Widget _ticket(TechnicianTask task) => Card(
     color: Colors.white,
@@ -240,7 +252,7 @@ class _TechnicianHomePageState extends State<TechnicianHomePage> {
     margin: const EdgeInsets.only(bottom: 10),
     child: InkWell(
       borderRadius: BorderRadius.circular(12),
-      onTap: () => showTaskDetails(context, task, widget.onChanged),
+      onTap: () => showTaskDetails(context, task, _refresh),
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(
@@ -274,6 +286,25 @@ class _TechnicianHomePageState extends State<TechnicianHomePage> {
               style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
             ),
             const SizedBox(height: 6),
+            Text(
+              '${task.scheduledAt.day}/${task.scheduledAt.month}/${task.scheduledAt.year} · '
+              '${task.scheduledAt.hour.toString().padLeft(2, '0')}:${task.scheduledAt.minute.toString().padLeft(2, '0')}',
+              style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+            ),
+            Wrap(
+              spacing: 6,
+              children: [
+                Text(
+                  task.isMaintenance ? 'Bảo trì' : 'Sự cố',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: AppColors.textMuted,
+                  ),
+                ),
+                if (TaskFilter.overdue.matches(task, DateTime.now()))
+                  const TaskBadge(label: 'Quá hạn', color: Colors.red),
+              ],
+            ),
             Row(
               children: [
                 Expanded(
@@ -291,7 +322,7 @@ class _TechnicianHomePageState extends State<TechnicianHomePage> {
                     child: ElevatedButton(
                       onPressed: () {
                         task.status = TaskStatus.accepted;
-                        widget.onChanged();
+                        _refresh();
                       },
                       child: const Text(
                         'Nhận việc',

@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 enum TaskStatus {
   pending('Chờ nhận'),
   accepted('Đã nhận'),
@@ -25,6 +27,7 @@ class TechnicianTask {
   final DateTime scheduledAt;
   final TaskPriority priority;
   final bool isMaintenance;
+  final Uint8List? evidence;
   TaskStatus status;
 
   TechnicianTask({
@@ -35,6 +38,7 @@ class TechnicianTask {
     required this.scheduledAt,
     required this.priority,
     this.isMaintenance = false,
+    this.evidence,
     this.status = TaskStatus.pending,
   });
 }

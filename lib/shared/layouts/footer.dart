@@ -26,16 +26,12 @@ class MyFooter extends StatelessWidget {
       items: isTechnician
           ? const [
               BottomNavigationBarItem(
-                icon: Icon(Icons.home_outlined),
-                label: 'Trang chủ',
+                icon: Icon(Icons.work_outline),
+                label: 'Công việc',
               ),
               BottomNavigationBarItem(
                 icon: Icon(Icons.calendar_month_outlined),
                 label: 'Lịch',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.build_outlined),
-                label: 'Sự cố',
               ),
               BottomNavigationBarItem(
                 icon: Icon(Icons.person_outline),
@@ -49,8 +45,8 @@ class MyFooter extends StatelessWidget {
                 label: 'Lịch',
               ),
               BottomNavigationBarItem(
-                icon: Icon(Icons.help_outlined),
-                label: 'Hỗ trợ',
+                icon: Icon(Icons.report_problem_outlined),
+                label: 'Báo cáo',
               ),
               BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Tôi'),
             ],
