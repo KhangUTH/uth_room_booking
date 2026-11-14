@@ -1,0 +1,48 @@
+import 'package:flutter/material.dart';
+
+import '../../features/auth/presentation/login_page.dart';
+import '../../features/equipment/presentation/device_list_page.dart';
+import '../../features/room/presentation/room_list_page.dart';
+import '../../features/splash/presentation/splash_screen.dart';
+import '../../features/technician/data/demo_incident_queue.dart';
+import '../../features/technician/presentation/task_details_page.dart';
+import '../../features/technician/presentation/task_evidence_page.dart';
+import '../../shared/layouts/main_shell.dart';
+import '../../features/notifications/presentation/notifications_view.dart';
+import 'app_route.dart';
+
+abstract final class AppRouter {
+  static Route<void> onGenerateRoute(
+    RouteSettings settings, {
+    DemoIncidentQueue? incidentQueue,
+  }) {
+    final page = switch ((settings.name, settings.arguments)) {
+      (AppRoute.splash, _) => const SplashScreen(),
+      (AppRoute.login, _) => const LoginPage(),
+      (AppRoute.home, HomeRouteArgs args) => MainShell(
+        name: args.name,
+        id: args.id,
+        role: args.role,
+        incidentQueue: incidentQueue,
+      ),
+      (AppRoute.rooms, _) => const RoomListPage(),
+      (AppRoute.equipment, _) => const DeviceListPage(),
+      (AppRoute.notifications, NotificationsRouteArgs args) =>
+        NotificationsView(
+          read: args.read,
+          saved: args.saved,
+          notices: args.notices,
+        ),
+      (AppRoute.technicianTask, TechnicianTaskRouteArgs args) =>
+        TaskDetailsPage(task: args.task, onChanged: args.onChanged),
+      (AppRoute.taskEvidence, TaskEvidenceRouteArgs image) => TaskEvidencePage(
+        image: image,
+      ),
+      _ => const Scaffold(
+        body: Center(child: Text('Không thể mở màn hình này.')),
+      ),
+    };
+
+    return MaterialPageRoute<void>(settings: settings, builder: (_) => page);
+  }
+}

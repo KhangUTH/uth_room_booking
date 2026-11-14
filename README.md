@@ -1,6 +1,8 @@
 # uth_room_booking
 
-A new Flutter project.
+Ứng dụng Flutter đặt lịch phòng máy và thiết bị cho Sinh viên, Giảng viên và Nhân viên kỹ thuật. Bản hiện tại dùng đăng nhập và dữ liệu demo.
+
+Xem [báo cáo đối chiếu project](docs/PROJECT_AUDIT.md) để biết cấu trúc thư mục và các nghiệp vụ còn thiếu. Khung backend nằm ở [supabase/](supabase/README.md).
 
 ## Getting Started
 

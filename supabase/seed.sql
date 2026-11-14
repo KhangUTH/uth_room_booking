@@ -1,0 +1,2 @@
+-- Chưa có schema; bổ sung dữ liệu giả sau khi migration được triển khai.
+-- Không đưa dữ liệu người dùng thật hoặc thông tin xác thực vào file này.
