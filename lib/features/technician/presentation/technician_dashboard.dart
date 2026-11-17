@@ -7,6 +7,7 @@ import '../models/technician_task.dart';
 import '../widgets/technician_panel.dart';
 import '../widgets/technician_attention_card.dart';
 import '../../notifications/data/sample_notices.dart';
+import '../../notifications/models/app_notice.dart';
 
 import 'package:uth_room_booking/theme/app_colors.dart';
 
@@ -22,6 +23,7 @@ class TechnicianDashboard extends StatelessWidget {
     required this.onNotifications,
     required this.onAssets,
     required this.onMaintenance,
+    this.notices,
   });
 
   final List<TechnicianTask> jobs;
@@ -29,11 +31,15 @@ class TechnicianDashboard extends StatelessWidget {
   final VoidCallback onNotifications;
   final VoidCallback onAssets;
   final VoidCallback onMaintenance;
+  final List<AppNotice>? notices;
 
   int _count(TaskFilter filter) => jobs.where(filter.matches).length;
 
   @override
   Widget build(BuildContext context) {
+    final latestNotice = notices == null
+        ? technicianNotices.last
+        : notices!.firstOrNull;
     final attention = jobs
         .where((job) => job.status != TaskStatus.completed)
         .take(2);
@@ -174,27 +180,28 @@ class TechnicianDashboard extends StatelessWidget {
                       ),
                     ),
                   ),
-                TechnicianPanel(
-                  child: ListTile(
-                    leading: const CircleAvatar(
-                      backgroundColor: _pale,
-                      foregroundColor: AppColors.primary,
-                      child: Icon(Icons.check_circle_outline),
-                    ),
-                    title: const Text(
-                      'Đề xuất bảo trì được duyệt',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: AppTextSizes.item,
+                if (latestNotice != null)
+                  TechnicianPanel(
+                    child: ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: _pale,
+                        foregroundColor: AppColors.primary,
+                        child: Icon(latestNotice.icon),
                       ),
+                      title: Text(
+                        latestNotice.title,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: AppTextSizes.item,
+                        ),
+                      ),
+                      subtitle: Text(
+                        latestNotice.message,
+                        style: const TextStyle(fontSize: AppTextSizes.caption),
+                      ),
+                      onTap: onNotifications,
                     ),
-                    subtitle: Text(
-                      technicianNotices.last.metadata,
-                      style: const TextStyle(fontSize: AppTextSizes.caption),
-                    ),
-                    onTap: onNotifications,
                   ),
-                ),
               ],
             ),
           ),

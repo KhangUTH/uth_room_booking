@@ -1,16 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../features/auth/data/auth_store.dart';
+import '../../features/auth/data/remembered_session_storage.dart';
 import '../../features/auth/presentation/login_page.dart';
+import '../../features/booking/data/asset_catalog.dart';
+import '../../features/booking/data/booking_store.dart';
 import '../../features/equipment/presentation/device_list_page.dart';
+import '../../features/incident_report/data/incident_report_store.dart';
+import '../../features/notifications/data/notice_store.dart';
+import '../../features/notifications/presentation/notifications_view.dart';
+import '../../features/profile/data/profile_avatar_storage.dart';
 import '../../features/room/presentation/room_list_page.dart';
 import '../../features/splash/presentation/splash_screen.dart';
-import '../../features/profile/presentation/profile_view.dart';
 import '../../features/technician/data/demo_incident_queue.dart';
 import '../../features/technician/presentation/task_details_page.dart';
 import '../../features/technician/presentation/task_evidence_page.dart';
 import '../../shared/layouts/main_shell.dart';
-import '../../features/notifications/presentation/notifications_view.dart';
 import 'app_route.dart';
 
 abstract final class AppRouter {
@@ -43,8 +49,15 @@ abstract final class AppRouter {
         name: args.name,
         id: args.id,
         role: args.role,
+        loadCatalog: supabase == null ? null : () => loadAssetCatalog(supabase),
+        bookingStore: supabase == null ? null : BookingStore(supabase),
+        noticeStore: supabase == null ? null : NoticeStore(supabase),
         faculty: args.faculty,
         incidentQueue: incidentQueue,
+        incidentStore: switch ((supabase, supabase?.auth.currentUser?.id)) {
+          (final client?, final userId?) => IncidentReportStore(client, userId),
+          _ => null,
+        },
         onSignOut: supabase == null
             ? null
             : () => signOutFromApp(supabase, sessionStorage: sessionStorage),
@@ -64,6 +77,8 @@ abstract final class AppRouter {
           read: args.read,
           saved: args.saved,
           notices: args.notices,
+          store: args.store,
+          bookingStore: args.bookingStore,
         ),
       (AppRoute.technicianTask, TechnicianTaskRouteArgs args) =>
         TaskDetailsPage(task: args.task, onChanged: args.onChanged),

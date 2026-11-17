@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../booking/data/sample_booking_data.dart';
 import '../../booking/models/booking.dart';
 import '../controllers/maintenance_proposal_controller.dart';
 import '../models/maintenance_proposal.dart';
@@ -12,6 +11,7 @@ Future<MaintenanceProposal?> showMaintenanceProposalDialog(
   MaintenanceProposalController controller, {
   BookingAsset? asset,
   required bool rooms,
+  List<BookingAsset>? assets,
 }) => showModalBottomSheet<MaintenanceProposal>(
   context: context,
   isScrollControlled: true,
@@ -27,6 +27,7 @@ Future<MaintenanceProposal?> showMaintenanceProposalDialog(
       controller: controller,
       initialAsset: asset,
       rooms: rooms,
+      assets: assets,
     ),
   ),
 );
@@ -36,11 +37,13 @@ class _MaintenanceForm extends StatefulWidget {
     required this.controller,
     required this.rooms,
     this.initialAsset,
+    this.assets,
   });
 
   final MaintenanceProposalController controller;
   final BookingAsset? initialAsset;
   final bool rooms;
+  final List<BookingAsset>? assets;
 
   @override
   State<_MaintenanceForm> createState() => _MaintenanceFormState();
@@ -104,6 +107,7 @@ class _MaintenanceFormState extends State<_MaintenanceForm> {
               ),
               MaintenanceAssetField(
                 rooms: widget.rooms,
+                catalogAssets: widget.assets,
                 initialValue: _asset,
                 onChanged: (asset) => setState(() => _asset = asset),
               ),

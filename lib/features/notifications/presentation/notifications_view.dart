@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 
-import '../data/sample_notices.dart';
-import '../models/app_notice.dart';
-
 import 'package:uth_room_booking/theme/app_colors.dart';
 
+import '../../booking/data/booking_store.dart';
+import '../../booking/widgets/booking_history_card.dart';
+import '../data/notice_store.dart';
+import '../data/sample_notices.dart';
+import '../models/app_notice.dart';
+import '../widgets/notice_card.dart';
+
 const _muted = Color(0xFF596577);
-const _border = Color(0xFFDFE5EA);
 
 enum _NoticeFilter {
   all('Tất cả'),
@@ -23,12 +26,16 @@ class NotificationsView extends StatefulWidget {
     required this.read,
     required this.saved,
     this.notices = demoNotices,
+    this.store,
+    this.bookingStore,
   });
 
   final List<AppNotice> notices;
 
   final Set<int> read;
   final Set<int> saved;
+  final NoticeStore? store;
+  final BookingStore? bookingStore;
 
   @override
   State<NotificationsView> createState() => _NotificationsViewState();
@@ -37,10 +44,140 @@ class NotificationsView extends StatefulWidget {
 class _NotificationsViewState extends State<NotificationsView> {
   _NoticeFilter _filter = _NoticeFilter.all;
   String _query = '';
+  final _pending = <int>{};
+  final _selected = <int>{};
+  bool _deleting = false;
+  bool _deleteFailed = false;
+
+  void _toggleSelection(int id) {
+    if (_deleting || _pending.contains(id)) return;
+    FocusManager.instance.primaryFocus?.unfocus();
+    setState(() {
+      _deleteFailed = false;
+      if (!_selected.add(id)) _selected.remove(id);
+    });
+  }
+
+  void _clearSelection() {
+    _selected.clear();
+    _deleteFailed = false;
+  }
+
+  Future<void> _deleteSelected(Set<int> ids) async {
+    final store = widget.store;
+    if (store == null || ids.isEmpty || _deleting) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Xóa thông báo?'),
+        content: Text('Xóa ${ids.length} thông báo đã chọn khỏi hộp thư?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Hủy'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Xóa'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || confirmed != true || _deleting) return;
+    setState(() {
+      _deleteFailed = false;
+      _deleting = true;
+    });
+    try {
+      await store.deleteNotices(ids);
+      if (mounted) setState(_clearSelection);
+    } catch (_) {
+      if (mounted) setState(() => _deleteFailed = true);
+    } finally {
+      if (mounted) setState(() => _deleting = false);
+    }
+  }
+
+  Future<void> _runAction(int id, Future<void> Function() action) async {
+    if (_pending.contains(id)) return;
+    setState(() => _pending.add(id));
+    try {
+      await action();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            const SnackBar(
+              content: Text('Không thể xử lý thông báo. Vui lòng thử lại.'),
+            ),
+          );
+      }
+    } finally {
+      if (mounted) setState(() => _pending.remove(id));
+    }
+  }
+
+  void _openNotice(AppNotice notice) {
+    final store = widget.store;
+    if (store == null) {
+      if (widget.read.add(notice.id)) setState(() {});
+      return;
+    }
+    _runAction(notice.id, () async {
+      await store.markRead(notice.id);
+      final id = store.bookingId(notice.id);
+      final bookings = widget.bookingStore;
+      if (!mounted || id == null || bookings == null) return;
+      final booking = await bookings.bookingById(id);
+      if (!mounted) return;
+      await showModalBottomSheet<void>(
+        context: context,
+        showDragHandle: true,
+        isScrollControlled: true,
+        useSafeArea: true,
+        builder: (context) => SafeArea(
+          top: false,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+            child: booking == null
+                ? const Text('Đăng ký này hiện không còn khả dụng.')
+                : BookingHistoryCard(booking: booking),
+          ),
+        ),
+      );
+    });
+  }
+
+  void _toggleSaved(int id, bool saved) {
+    final store = widget.store;
+    if (store != null) {
+      _runAction(id, () => store.setSaved(id, !saved));
+    } else {
+      setState(() {
+        if (saved) {
+          widget.saved.remove(id);
+        } else {
+          widget.saved.add(id);
+        }
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final visibleNotices = widget.notices.where((notice) {
+    final store = widget.store;
+    return store == null
+        ? _buildInbox()
+        : ListenableBuilder(
+            listenable: store,
+            builder: (_, _) => _buildInbox(),
+          );
+  }
+
+  Widget _buildInbox() {
+    final store = widget.store;
+    final visibleNotices = (store?.notices ?? widget.notices).where((notice) {
       final matchesFilter = switch (_filter) {
         _NoticeFilter.all => true,
         _NoticeFilter.unread => !widget.read.contains(notice.id),
@@ -51,6 +188,12 @@ class _NotificationsViewState extends State<NotificationsView> {
               .toLowerCase()
               .contains(_query);
     }).toList();
+    final selecting = _selected.isNotEmpty;
+    final selectableIds = visibleNotices
+        .map((notice) => notice.id)
+        .where((id) => !_pending.contains(id))
+        .toSet();
+    final selectedIds = _selected.intersection(selectableIds);
 
     final content = SafeArea(
       top: false,
@@ -60,8 +203,11 @@ class _NotificationsViewState extends State<NotificationsView> {
           Padding(
             padding: const EdgeInsets.fromLTRB(24, 6, 24, 4),
             child: TextField(
-              onChanged: (value) =>
-                  setState(() => _query = value.trim().toLowerCase()),
+              enabled: !_deleting,
+              onChanged: (value) => setState(() {
+                _query = value.trim().toLowerCase();
+                _clearSelection();
+              }),
               textInputAction: TextInputAction.search,
               decoration: InputDecoration(
                 hintText: 'Tìm kiếm thông báo...',
@@ -91,7 +237,12 @@ class _NotificationsViewState extends State<NotificationsView> {
                     child: Semantics(
                       selected: _filter == filter,
                       child: TextButton(
-                        onPressed: () => setState(() => _filter = filter),
+                        onPressed: _deleting
+                            ? null
+                            : () => setState(() {
+                                if (_filter != filter) _clearSelection();
+                                _filter = filter;
+                              }),
                         style: TextButton.styleFrom(
                           padding: const EdgeInsets.symmetric(horizontal: 2),
                           foregroundColor: _filter == filter
@@ -118,125 +269,140 @@ class _NotificationsViewState extends State<NotificationsView> {
               ],
             ),
           ),
+          if (_deleting) const LinearProgressIndicator(),
+          if (_deleteFailed)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+              child: Text('Không thể xóa thông báo. Vui lòng thử lại.'),
+            ),
           Expanded(
-            child: visibleNotices.isEmpty
-                ? const Center(
-                    child: Text(
-                      'Không có thông báo',
-                      style: TextStyle(color: _muted),
+            child: _refreshable(
+              store?.loading == true
+                  ? const Center(child: CircularProgressIndicator())
+                  : store?.loadFailed == true && store!.notices.isEmpty
+                  ? _InboxMessage(
+                      child: TextButton(
+                        onPressed: store.refresh,
+                        child: const Text('Không tải được thông báo. Thử lại'),
+                      ),
+                    )
+                  : visibleNotices.isEmpty
+                  ? const _InboxMessage(
+                      child: Text(
+                        'Không có thông báo',
+                        style: TextStyle(color: _muted),
+                      ),
+                    )
+                  : ListView.separated(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      keyboardDismissBehavior:
+                          ScrollViewKeyboardDismissBehavior.onDrag,
+                      padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+                      itemCount: visibleNotices.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 14),
+                      itemBuilder: (context, index) {
+                        final notice = visibleNotices[index];
+                        final saved = widget.saved.contains(notice.id);
+                        final isRead = widget.read.contains(notice.id);
+                        final selected = selectedIds.contains(notice.id);
+                        final disabled =
+                            _deleting || _pending.contains(notice.id);
+                        return NoticeCard(
+                          notice: notice,
+                          isRead: isRead,
+                          saved: saved,
+                          selecting: selecting,
+                          selected: selected,
+                          onTap: disabled
+                              ? null
+                              : selecting
+                              ? () => _toggleSelection(notice.id)
+                              : () => _openNotice(notice),
+                          onLongPress: store == null || disabled
+                              ? null
+                              : () => _toggleSelection(notice.id),
+                          onSave: disabled
+                              ? null
+                              : () => _toggleSaved(notice.id, saved),
+                        );
+                      },
                     ),
-                  )
-                : ListView.separated(
-                    keyboardDismissBehavior:
-                        ScrollViewKeyboardDismissBehavior.onDrag,
-                    padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
-                    itemCount: visibleNotices.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 14),
-                    itemBuilder: (context, index) {
-                      final notice = visibleNotices[index];
-                      final saved = widget.saved.contains(notice.id);
-                      final isRead = widget.read.contains(notice.id);
-                      return Material(
-                        color: isRead ? Colors.white : const Color(0xFFF0F8F8),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(13),
-                          side: const BorderSide(color: _border),
-                        ),
-                        clipBehavior: Clip.antiAlias,
-                        child: InkWell(
-                          onTap: () {
-                            if (widget.read.add(notice.id)) {
-                              setState(() {});
-                            }
-                          },
-                          child: Padding(
-                            padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                CircleAvatar(
-                                  radius: 20,
-                                  backgroundColor: const Color(0xFFE3F2F3),
-                                  foregroundColor: AppColors.primary,
-                                  child: Icon(notice.icon, size: 21),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        notice.title,
-                                        style: TextStyle(
-                                          fontSize: 15,
-                                          color: const Color(0xFF172033),
-                                          fontWeight: isRead
-                                              ? FontWeight.w500
-                                              : FontWeight.w700,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        notice.message,
-                                        style: const TextStyle(
-                                          color: _muted,
-                                          fontSize: 13,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        notice.metadata,
-                                        style: const TextStyle(
-                                          color: _muted,
-                                          fontSize: 11,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                IconButton(
-                                  tooltip: saved
-                                      ? 'Bỏ lưu thông báo'
-                                      : 'Lưu thông báo',
-                                  onPressed: () => setState(() {
-                                    if (saved) {
-                                      widget.saved.remove(notice.id);
-                                    } else {
-                                      widget.saved.add(notice.id);
-                                    }
-                                  }),
-                                  icon: Icon(
-                                    saved
-                                        ? Icons.bookmark
-                                        : Icons.bookmark_border,
-                                    color: AppColors.primary,
-                                    size: 18,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
+            ),
           ),
         ],
       ),
     );
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
+    return PopScope(
+      canPop: !selecting && !_deleting,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && selecting && !_deleting) setState(_clearSelection);
+      },
+      child: Scaffold(
         backgroundColor: Colors.white,
-        surfaceTintColor: Colors.transparent,
-        foregroundColor: AppColors.primary,
-        title: const Text(
-          'Thông báo',
-          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 21),
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.transparent,
+          foregroundColor: AppColors.primary,
+          leading: selecting
+              ? IconButton(
+                  tooltip: 'Thoát chế độ chọn',
+                  onPressed: _deleting ? null : () => setState(_clearSelection),
+                  icon: const Icon(Icons.close),
+                )
+              : null,
+          title: Text(
+            selecting ? 'Đã chọn ${selectedIds.length}' : 'Thông báo',
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: selecting ? 16 : 21,
+            ),
+          ),
+          actions: selecting
+              ? [
+                  TextButton(
+                    onPressed: _deleting || selectableIds.isEmpty
+                        ? null
+                        : () => setState(() {
+                            _selected
+                              ..clear()
+                              ..addAll(selectableIds);
+                            _deleteFailed = false;
+                          }),
+                    child: const Text('Chọn tất cả'),
+                  ),
+                  IconButton(
+                    tooltip: 'Xóa thông báo đã chọn',
+                    onPressed: _deleting || selectedIds.isEmpty
+                        ? null
+                        : () => _deleteSelected(selectedIds),
+                    icon: const Icon(Icons.delete_outline),
+                  ),
+                ]
+              : null,
         ),
+        body: content,
       ),
-      body: content,
     );
   }
+
+  Widget _refreshable(Widget child) {
+    final store = widget.store;
+    return store == null
+        ? child
+        : RefreshIndicator(onRefresh: store.refresh, child: child);
+  }
+}
+
+class _InboxMessage extends StatelessWidget {
+  const _InboxMessage({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => CustomScrollView(
+    physics: const AlwaysScrollableScrollPhysics(),
+    slivers: [
+      SliverFillRemaining(hasScrollBody: false, child: Center(child: child)),
+    ],
+  );
 }

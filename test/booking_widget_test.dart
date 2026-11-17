@@ -2,11 +2,54 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:uth_room_booking/core/router/app_router.dart';
 import 'package:uth_room_booking/features/auth/models/user_role.dart';
+import 'package:uth_room_booking/features/booking/controllers/booking_controller.dart';
+import 'package:uth_room_booking/features/booking/data/sample_booking_data.dart';
 import 'package:uth_room_booking/shared/layouts/main_shell.dart';
 
 import 'support/widget_test_helpers.dart';
 
 void main() {
+  test('sinh viên chỉ giữ một phòng trong cùng ca và ngày', () {
+    final today = DateTime(2026, 11, 17);
+    final day = DateTime(2026, 11, 18);
+    final tomorrow = DateTime(2026, 11, 19);
+    final bookings = BookingController(
+      today: today,
+      role: UserRole.student,
+      initialBookings: [],
+    );
+    final first = sampleBookingRooms.first;
+    final second = sampleBookingRooms[1];
+    final equipment = sampleBookingEquipment.first;
+    final firstSlot = (date: day, asset: first.name, index: 2);
+    final secondSlot = (date: day, asset: second.name, index: 2);
+
+    expect(bookings.register(firstSlot, first, null, studentCount: 10), isTrue);
+    expect(bookings.hasStudentRoomBooking(day, 2), isTrue);
+    expect(
+      bookings.register(secondSlot, second, null, studentCount: 10),
+      isFalse,
+    );
+    expect(bookings.hasStudentRoomBooking(tomorrow, 2), isFalse);
+    expect(bookings.hasStudentRoomBooking(day, 3), isFalse);
+    expect(
+      bookings.register(
+        (date: day, asset: equipment.name, index: 2),
+        equipment,
+        null,
+      ),
+      isTrue,
+    );
+    expect(bookings.cancel(0), isTrue);
+    expect(
+      bookings.register(secondSlot, second, null, studentCount: 10),
+      isTrue,
+    );
+    expect(bookings.indicesFor(day, cancelledLast: true), [2, 1, 0]);
+    expect(bookings.cancel(2), isTrue);
+    expect(bookings.indicesFor(day, cancelledLast: true), [1, 2, 0]);
+  });
+
   testWidgets('giảng viên gắn lớp học phần vào ca và xem lại chi tiết', (
     tester,
   ) async {
@@ -23,6 +66,7 @@ void main() {
     );
     await tester.tap(find.text('Lịch'));
     await tester.pumpAndSettle();
+    expect(find.text('Phòng thư viện'), findsNothing);
     await tester.tap(find.text('Ca 3'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Phòng B1-201'));
@@ -33,7 +77,7 @@ void main() {
       find.descendant(of: sheet, matching: find.byIcon(Icons.arrow_drop_down)),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('CNTT301 · Lập trình di động').last);
+    await tester.tap(find.text('CN2302E · Lập trình Web').last);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Đặt phòng'));
     await tester.pumpAndSettle();
@@ -41,9 +85,24 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Phòng B1-201'), findsOneWidget);
     expect(find.text('Mã học phần'), findsWidgets);
-    expect(find.text('Lập trình di động'), findsOneWidget);
+    expect(find.text('Lập trình Web'), findsOneWidget);
     expect(find.text('13:00 – 15:00'), findsWidgets);
     expect(find.text('Chờ duyệt'), findsOneWidget);
+
+    await tester.tap(find.text('Thiết bị'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ổ điện'));
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(of: sheet, matching: find.text('Lớp học phần')),
+      findsNothing,
+    );
+    await tester.tap(find.widgetWithText(FilledButton, 'Đặt thiết bị'));
+    await tester.pumpAndSettle();
+    expect(sheet, findsNothing);
+    await tester.tap(find.text('Của tôi'));
+    await tester.pumpAndSettle();
+    expect(find.text('Ổ điện'), findsOneWidget);
   });
 
   testWidgets('chọn phòng và xem ca vừa đăng ký trong lịch của tôi', (

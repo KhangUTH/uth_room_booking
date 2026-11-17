@@ -10,15 +10,18 @@ class MaintenanceAssetField extends StatelessWidget {
     required this.rooms,
     required this.initialValue,
     required this.onChanged,
+    this.catalogAssets,
   });
 
   final bool rooms;
   final BookingAsset? initialValue;
   final ValueChanged<BookingAsset?> onChanged;
+  final List<BookingAsset>? catalogAssets;
 
   @override
   Widget build(BuildContext context) {
-    final assets = rooms ? sampleBookingRooms : sampleBookingEquipment;
+    final assets =
+        catalogAssets ?? (rooms ? sampleBookingRooms : sampleBookingEquipment);
     final categoryIcon = rooms
         ? Icons.apartment_outlined
         : Icons.devices_other_outlined;

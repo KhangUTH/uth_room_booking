@@ -61,21 +61,22 @@ class HomeNoticeCard extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(width: 6),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-          decoration: BoxDecoration(
-            color: _paleTeal,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Text(
-            age,
-            style: const TextStyle(
-              color: AppColors.primary,
-              fontSize: AppTextSizes.badge,
+        if (age.isNotEmpty) const SizedBox(width: 6),
+        if (age.isNotEmpty)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: _paleTeal,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              age,
+              style: const TextStyle(
+                color: AppColors.primary,
+                fontSize: AppTextSizes.badge,
+              ),
             ),
           ),
-        ),
       ],
     ),
   );

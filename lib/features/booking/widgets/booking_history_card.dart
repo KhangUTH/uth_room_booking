@@ -1,77 +1,12 @@
 import 'package:flutter/material.dart';
 
-import '../controllers/booking_controller.dart';
-import '../data/sample_booking_data.dart';
 import '../models/booking.dart';
-import 'booking_category_tabs.dart';
 import 'booking_panel.dart';
 
 import 'package:uth_room_booking/theme/app_colors.dart';
 
 const _line = Color(0xFFD6E6E7);
 const _muted = Color(0xFF526E74);
-
-class BookingHistoryPage extends StatefulWidget {
-  const BookingHistoryPage({super.key, required this.bookings});
-
-  final BookingController bookings;
-
-  @override
-  State<BookingHistoryPage> createState() => _BookingHistoryPageState();
-}
-
-class _BookingHistoryPageState extends State<BookingHistoryPage> {
-  bool _rooms = true;
-
-  @override
-  Widget build(BuildContext context) {
-    final entries = widget.bookings
-        .indicesFor(null)
-        .map(widget.bookings.bookingAt)
-        .where((booking) => (booking.asset.capacity > 0) == _rooms)
-        .toList();
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Lịch sử đăng ký'),
-        backgroundColor: AppColors.appBar,
-        foregroundColor: Colors.white,
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-              child: BookingCategoryTabs(
-                options: const [(true, 'Phòng máy'), (false, 'Thiết bị')],
-                selected: _rooms,
-                onChanged: (rooms) => setState(() => _rooms = rooms),
-              ),
-            ),
-            Expanded(
-              child: entries.isEmpty
-                  ? Center(
-                      child: Text(
-                        _rooms
-                            ? 'Bạn chưa đăng ký phòng máy.'
-                            : 'Bạn chưa đăng ký thiết bị.',
-                      ),
-                    )
-                  : ListView.separated(
-                      key: ValueKey(_rooms),
-                      padding: const EdgeInsets.all(16),
-                      itemCount: entries.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 10),
-                      itemBuilder: (_, index) =>
-                          BookingHistoryCard(booking: entries[index]),
-                    ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 extension _BookingStatusStyle on BookingStatus {
   (String, IconData, Color, Color) get _style => switch (this) {
@@ -98,6 +33,12 @@ extension _BookingStatusStyle on BookingStatus {
       Icons.event_busy_outlined,
       _muted,
       const Color(0xFFEBEFEF),
+    ),
+    BookingStatus.completed => (
+      'Đã hoàn thành',
+      Icons.done_all,
+      const Color(0xFF006747),
+      const Color(0xFFD9F8E9),
     ),
   };
 
@@ -218,10 +159,7 @@ class BookingHistoryCard extends StatelessWidget {
                   ),
                   if (section != null) ...[
                     _bookingDetail('Mã học phần', section.code),
-                    _bookingDetail(
-                      'Lớp học phần',
-                      section.name,
-                    ),
+                    _bookingDetail('Lớp học phần', section.name),
                   ] else
                     _bookingDetail(
                       'Loại đăng ký',

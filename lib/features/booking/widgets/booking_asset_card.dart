@@ -15,18 +15,25 @@ class BookingAssetCard extends StatelessWidget {
     required this.status,
     required this.past,
     required this.onTap,
+    this.roomSlotTaken = false,
   });
 
   final BookingAsset asset;
   final SlotStatus status;
   final bool past;
   final VoidCallback onTap;
+  final bool roomSlotTaken;
 
   @override
   Widget build(BuildContext context) {
-    final available = status == SlotStatus.free && !past;
+    final available = status == SlotStatus.free && !past && !roomSlotTaken;
     final (label, foreground, background) = switch (status) {
       SlotStatus.free when past => ('Đã qua', _muted, Colors.white),
+      SlotStatus.free when roomSlotTaken => (
+        'Bạn đã có ca',
+        _muted,
+        const Color(0xFFEBEDEF),
+      ),
       SlotStatus.free => ('Trống', AppColors.primary, Colors.white),
       SlotStatus.booked => ('Đã đặt', _muted, const Color(0xFFEBEDEF)),
       SlotStatus.mine => (

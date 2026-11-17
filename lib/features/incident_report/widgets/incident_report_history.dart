@@ -10,29 +10,48 @@ class IncidentReportHistory extends StatelessWidget {
     required this.reports,
     required this.statusFor,
     required this.onOpen,
+    this.onRefresh,
   });
 
   final List<IncidentReport> reports;
   final IncidentStatus Function(IncidentReport) statusFor;
   final ValueChanged<IncidentReport> onOpen;
+  final Future<void> Function()? onRefresh;
 
   static const _pale = Color(0xFFDCEFEF);
   static const _line = Color(0xFFD6E6E7);
 
   @override
   Widget build(BuildContext context) {
+    final content = _buildList();
+    final refresh = onRefresh;
+    return refresh == null
+        ? content
+        : RefreshIndicator(onRefresh: refresh, child: content);
+  }
+
+  Widget _buildList() {
     if (reports.isEmpty) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(24),
-          child: Text(
-            'Bạn chưa gửi báo cáo sự cố nào.',
-            textAlign: TextAlign.center,
+      return const CustomScrollView(
+        physics: AlwaysScrollableScrollPhysics(),
+        slivers: [
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: Center(
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: Text(
+                  'Bạn chưa gửi báo cáo sự cố nào.',
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
           ),
-        ),
+        ],
       );
     }
     return ListView.separated(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(16),
       itemCount: reports.length,
       separatorBuilder: (_, _) => const SizedBox(height: 10),

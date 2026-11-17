@@ -1,8 +1,10 @@
 import 'dart:typed_data';
 
 import '../../features/auth/models/user_role.dart';
-import '../../features/technician/models/technician_task.dart';
+import '../../features/booking/data/booking_store.dart';
+import '../../features/notifications/data/notice_store.dart';
 import '../../features/notifications/models/app_notice.dart';
+import '../../features/technician/models/technician_task.dart';
 
 abstract final class AppRoute {
   static const splash = '/';
@@ -26,6 +28,8 @@ typedef NotificationsRouteArgs = ({
   Set<int> read,
   Set<int> saved,
   List<AppNotice> notices,
+  NoticeStore? store,
+  BookingStore? bookingStore,
 });
 
 typedef TechnicianTaskRouteArgs = ({

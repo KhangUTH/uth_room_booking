@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../booking/data/sample_booking_data.dart';
+import '../../booking/models/booking.dart';
 
 class MaintenanceScheduleField extends StatefulWidget {
   const MaintenanceScheduleField({

@@ -1,22 +1,32 @@
 import 'package:flutter/material.dart';
 
-import '../widgets/technician_page_title.dart';
-
 import '../../../theme/app_text_sizes.dart';
+import '../../booking/data/asset_catalog.dart';
 import '../../booking/data/sample_booking_data.dart';
 import '../../booking/models/booking.dart';
 import '../widgets/technician_asset_card.dart';
+import '../widgets/technician_page_title.dart';
 
 class TechnicianAssetsPage extends StatelessWidget {
-  const TechnicianAssetsPage({super.key, required this.onAsset});
+  const TechnicianAssetsPage({
+    super.key,
+    required this.onAsset,
+    this.catalog,
+    this.onRefresh,
+  });
 
   final ValueChanged<BookingAsset> onAsset;
+  final AssetCatalog? catalog;
+  final Future<void> Function()? onRefresh;
 
   @override
   Widget build(BuildContext context) {
-    final assets = [...sampleBookingRooms, ...sampleBookingEquipment];
+    final rooms = catalog?.rooms ?? sampleBookingRooms;
+    final devices = catalog?.equipment ?? sampleBookingEquipment;
+    final assets = [...rooms, ...devices];
     final maintenanceCount = assets.where(isAssetInMaintenance).length;
-    return ListView(
+    final content = ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(16),
       children: [
         const TechnicianPageTitle('Phòng và thiết bị phụ trách'),
@@ -33,7 +43,7 @@ class TechnicianAssetsPage extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 16),
-        _SectionTitle('Phòng máy', sampleBookingRooms.length),
+        _SectionTitle('Phòng máy', rooms.length),
         const SizedBox(height: 8),
         LayoutBuilder(
           builder: (context, constraints) {
@@ -44,7 +54,7 @@ class TechnicianAssetsPage extends StatelessWidget {
               spacing: gap,
               runSpacing: gap,
               children: [
-                for (final room in sampleBookingRooms)
+                for (final room in rooms)
                   SizedBox(
                     width: cardWidth,
                     child: TechnicianAssetCard(
@@ -58,9 +68,9 @@ class TechnicianAssetsPage extends StatelessWidget {
           },
         ),
         const SizedBox(height: 16),
-        _SectionTitle('Thiết bị', sampleBookingEquipment.length),
+        _SectionTitle('Thiết bị', devices.length),
         const SizedBox(height: 8),
-        for (final equipment in sampleBookingEquipment)
+        for (final equipment in devices)
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
             child: TechnicianAssetCard(
@@ -71,6 +81,10 @@ class TechnicianAssetsPage extends StatelessWidget {
           ),
       ],
     );
+    final refresh = onRefresh;
+    return refresh == null
+        ? content
+        : RefreshIndicator(onRefresh: refresh, child: content);
   }
 }
 

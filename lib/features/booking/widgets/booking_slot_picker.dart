@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../models/booking.dart';
+
 import '../../../theme/app_colors.dart';
-import '../data/sample_booking_data.dart';
 import 'booking_status_badge.dart';
 
 const _pale = Color(0xFFDCEFEF);

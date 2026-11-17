@@ -2,6 +2,47 @@ import 'package:flutter/material.dart';
 
 import '../../../theme/app_colors.dart';
 
+class BookingFeedback extends StatelessWidget {
+  const BookingFeedback({
+    super.key,
+    required this.message,
+    required this.failed,
+  });
+
+  final String message;
+  final bool failed;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final foreground = failed ? colors.onErrorContainer : AppColors.primary;
+    return Semantics(
+      liveRegion: true,
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(14, 4, 14, 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: failed ? colors.errorContainer : const Color(0xFFEAF6F5),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              failed ? Icons.info_outline : Icons.check_circle_outline,
+              size: 19,
+              color: foreground,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(message, style: TextStyle(color: foreground)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class BookingHint extends StatelessWidget {
   const BookingHint({super.key, required this.label});
 

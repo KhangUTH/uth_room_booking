@@ -19,11 +19,13 @@ class BookingConfirmationSheet extends StatefulWidget {
     required this.slot,
     required this.asset,
     required this.role,
+    this.courses = sampleTeachingCourses,
   });
 
   final BookingSlot slot;
   final BookingAsset asset;
   final UserRole role;
+  final List<CourseSection> courses;
 
   @override
   State<BookingConfirmationSheet> createState() =>
@@ -39,12 +41,13 @@ class _BookingConfirmationSheetState extends State<BookingConfirmationSheet> {
 
   bool get _isRoom => widget.asset.capacity > 0;
   bool get _needsCount => _isRoom && widget.role == UserRole.student;
+  bool get _needsCourse => _isRoom && widget.role == UserRole.teacher;
 
   void _confirm() {
     if (!_form.currentState!.validate()) return;
     _form.currentState!.save();
     Navigator.of(context).pop<BookingSelection>((
-      section: _section,
+      section: _needsCourse ? _section : null,
       studentCount: _needsCount ? _studentCount : null,
     ));
   }
@@ -179,7 +182,7 @@ class _BookingConfirmationSheetState extends State<BookingConfirmationSheet> {
                     ),
                   ],
                 ],
-                if (widget.role == UserRole.teacher) ...[
+                if (_needsCourse) ...[
                   const SizedBox(height: 20),
                   DropdownButtonFormField<CourseSection>(
                     isExpanded: true,
@@ -187,7 +190,7 @@ class _BookingConfirmationSheetState extends State<BookingConfirmationSheet> {
                       labelText: 'Lớp học phần',
                     ),
                     items: [
-                      for (final course in sampleTeachingCourses)
+                      for (final course in widget.courses)
                         DropdownMenuItem(
                           value: course,
                           child: Text(

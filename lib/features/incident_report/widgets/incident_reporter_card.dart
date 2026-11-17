@@ -9,11 +9,13 @@ class IncidentReporterCard extends StatelessWidget {
     required this.name,
     required this.id,
     required this.role,
+    this.avatar,
   });
 
   final String name;
   final String id;
   final UserRole role;
+  final ImageProvider? avatar;
   static const _pale = Color(0xFFDCEFEF);
   static const _line = Color(0xFFD6E6E7);
   static const _muted = Color(0xFF526E74);
@@ -34,11 +36,12 @@ class IncidentReporterCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const CircleAvatar(
+          CircleAvatar(
             radius: 18,
             backgroundColor: _pale,
             foregroundColor: AppColors.primary,
-            child: Icon(Icons.person_outline, size: 20),
+            foregroundImage: avatar,
+            child: const Icon(Icons.person_outline, size: 20),
           ),
           const SizedBox(width: 10),
           Expanded(

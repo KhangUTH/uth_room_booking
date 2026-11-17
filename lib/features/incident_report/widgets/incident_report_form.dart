@@ -35,13 +35,19 @@ class IncidentReportForm extends StatefulWidget {
     required this.role,
     required this.nextReportId,
     required this.onSubmitted,
+    this.avatar,
+    this.roomNames,
+    this.equipmentNames,
   });
 
   final String name;
   final String id;
   final UserRole role;
   final int Function() nextReportId;
-  final ValueChanged<IncidentReport> onSubmitted;
+  final Future<bool> Function(IncidentReport) onSubmitted;
+  final ImageProvider? avatar;
+  final Iterable<String>? roomNames;
+  final Iterable<String>? equipmentNames;
 
   @override
   State<IncidentReportForm> createState() => _IncidentReportFormState();
@@ -50,6 +56,8 @@ class IncidentReportForm extends StatefulWidget {
 class _IncidentReportFormState extends State<IncidentReportForm> {
   Uint8List? _photo;
   bool _pickingPhotos = false;
+  bool _submitting = false;
+  String? _submitError;
   var _formKey = GlobalKey<FormState>();
   String _title = '';
   String _description = '';
@@ -62,8 +70,10 @@ class _IncidentReportFormState extends State<IncidentReportForm> {
   bool get _isTeacher => widget.role == UserRole.teacher;
 
   Iterable<String> get _assets => switch (_type) {
-    _IncidentType.room => sampleRooms.map((room) => room.name),
-    _IncidentType.equipment => sampleDevices.map((device) => device.name),
+    _IncidentType.room =>
+      widget.roomNames ?? sampleRooms.map((room) => room.name),
+    _IncidentType.equipment =>
+      widget.equipmentNames ?? sampleDevices.map((device) => device.name),
   };
 
   InputDecoration _input({String? hint}) {
@@ -122,7 +132,8 @@ class _IncidentReportFormState extends State<IncidentReportForm> {
     }
   }
 
-  void _submit() {
+  Future<void> _submit() async {
+    if (_submitting) return;
     final form = _formKey.currentState!;
     final asset = _asset;
     if (!form.validate() || asset == null) return;
@@ -141,6 +152,26 @@ class _IncidentReportFormState extends State<IncidentReportForm> {
       photos: List<Uint8List>.unmodifiable([?_photo]),
     );
     setState(() {
+      _submitting = true;
+      _submitError = null;
+    });
+    try {
+      if (!await widget.onSubmitted(report)) {
+        if (mounted) {
+          setState(
+            () => _submitError = 'Không gửi được báo cáo. Vui lòng thử lại.',
+          );
+        }
+        return;
+      }
+    } on FormatException catch (error) {
+      if (mounted) setState(() => _submitError = error.message);
+      return;
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+    if (!mounted) return;
+    setState(() {
       _formKey = GlobalKey<FormState>();
       _type = _IncidentType.room;
       _asset = null;
@@ -149,7 +180,6 @@ class _IncidentReportFormState extends State<IncidentReportForm> {
       _occurredAt = DateTime.now();
       _photo = null;
     });
-    widget.onSubmitted(report);
   }
 
   String? _requiredText(String? value, String message) =>
@@ -157,113 +187,123 @@ class _IncidentReportFormState extends State<IncidentReportForm> {
 
   @override
   Widget build(BuildContext context) {
-    return Form(
-      key: _formKey,
-      child: SingleChildScrollView(
-        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            IncidentReporterCard(
-              name: widget.name,
-              id: widget.id,
-              role: widget.role,
-            ),
-            const IncidentFieldTitle('Loại sự cố'),
-            Row(
-              children: [
-                for (final type in _IncidentType.values) ...[
-                  if (type != _IncidentType.values.first)
-                    const SizedBox(width: 8),
-                  Expanded(child: _buildType(type)),
-                ],
-              ],
-            ),
-            const IncidentFieldTitle('Vị trí / đối tượng'),
-            DropdownButtonFormField<String>(
-              key: ValueKey(_type),
-              initialValue: _asset,
-              decoration: _input(),
-              hint: Text(
-                _type == _IncidentType.room
-                    ? 'Chọn phòng máy'
-                    : 'Chọn thiết bị',
+    return AbsorbPointer(
+      absorbing: _submitting,
+      child: Form(
+        key: _formKey,
+        child: SingleChildScrollView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              IncidentReporterCard(
+                avatar: widget.avatar,
+                name: widget.name,
+                id: widget.id,
+                role: widget.role,
               ),
-              isExpanded: true,
-              items: [
-                for (final asset in _assets)
-                  DropdownMenuItem(value: asset, child: Text(asset)),
-              ],
-              onChanged: (asset) => setState(() => _asset = asset),
-              validator: (asset) =>
-                  asset == null ? 'Vui lòng chọn vị trí hoặc đối tượng' : null,
-            ),
-            if (_isTeacher) ...[
-              const IncidentFieldTitle('Lớp học phần đang dạy'),
-              TextFormField(
-                decoration: _input(hint: 'Lập trình di động - Nhóm 02')
-                    .copyWith(
-                      helperText: _needsTeachingSupport
-                          ? 'Bắt buộc khi cần hỗ trợ ngay'
-                          : null,
-                    ),
-                textInputAction: TextInputAction.next,
-                onSaved: (value) => _course = value?.trim() ?? '',
-                validator: (value) => _needsTeachingSupport
-                    ? _requiredText(
-                        value,
-                        'Vui lòng nhập lớp học phần đang dạy',
-                      )
+              const IncidentFieldTitle('Loại sự cố'),
+              Row(
+                children: [
+                  for (final type in _IncidentType.values) ...[
+                    if (type != _IncidentType.values.first)
+                      const SizedBox(width: 8),
+                    Expanded(child: _buildType(type)),
+                  ],
+                ],
+              ),
+              const IncidentFieldTitle('Vị trí / đối tượng'),
+              DropdownButtonFormField<String>(
+                key: ValueKey(_type),
+                initialValue: _asset,
+                decoration: _input(),
+                hint: Text(
+                  _type == _IncidentType.room
+                      ? 'Chọn phòng máy'
+                      : 'Chọn thiết bị',
+                ),
+                isExpanded: true,
+                items: [
+                  for (final asset in _assets)
+                    DropdownMenuItem(value: asset, child: Text(asset)),
+                ],
+                onChanged: (asset) => setState(() => _asset = asset),
+                validator: (asset) => asset == null
+                    ? 'Vui lòng chọn vị trí hoặc đối tượng'
                     : null,
               ),
-            ],
-            const IncidentFieldTitle('Tiêu đề'),
-            TextFormField(
-              decoration: _input(hint: 'Máy số 12 không lên nguồn'),
-              textInputAction: TextInputAction.next,
-              onSaved: (value) => _title = value!.trim(),
-              validator: (value) =>
-                  _requiredText(value, 'Vui lòng nhập tiêu đề'),
-            ),
-            const IncidentFieldTitle('Mô tả chi tiết'),
-            TextFormField(
-              minLines: 3,
-              maxLines: 5,
-              onSaved: (value) => _description = value!.trim(),
-              decoration: _input(
-                hint: 'Mô tả hiện tượng, các bước dẫn đến lỗi…',
+              if (_isTeacher) ...[
+                const IncidentFieldTitle('Lớp học phần đang dạy'),
+                TextFormField(
+                  decoration: _input(hint: 'Lập trình di động - Nhóm 02')
+                      .copyWith(
+                        helperText: _needsTeachingSupport
+                            ? 'Bắt buộc khi cần hỗ trợ ngay'
+                            : null,
+                      ),
+                  textInputAction: TextInputAction.next,
+                  onSaved: (value) => _course = value?.trim() ?? '',
+                  validator: (value) => _needsTeachingSupport
+                      ? _requiredText(
+                          value,
+                          'Vui lòng nhập lớp học phần đang dạy',
+                        )
+                      : null,
+                ),
+              ],
+              const IncidentFieldTitle('Tiêu đề'),
+              TextFormField(
+                decoration: _input(hint: 'Máy số 12 không lên nguồn'),
+                textInputAction: TextInputAction.next,
+                onSaved: (value) => _title = value!.trim(),
+                validator: (value) =>
+                    _requiredText(value, 'Vui lòng nhập tiêu đề'),
               ),
-              validator: (value) =>
-                  _requiredText(value, 'Vui lòng mô tả sự cố'),
-            ),
-            IncidentTimeField(value: _occurredAt, onTap: _chooseTime),
-            IncidentPhotoField(
-              photo: _photo,
-              onPick: _pickingPhotos ? null : _addPhoto,
-              onRemove: _pickingPhotos
-                  ? null
-                  : () => setState(() => _photo = null),
-            ),
-            if (_isTeacher) ...[
+              const IncidentFieldTitle('Mô tả chi tiết'),
+              TextFormField(
+                minLines: 3,
+                maxLines: 5,
+                onSaved: (value) => _description = value!.trim(),
+                decoration: _input(
+                  hint: 'Mô tả hiện tượng, các bước dẫn đến lỗi…',
+                ),
+                validator: (value) =>
+                    _requiredText(value, 'Vui lòng mô tả sự cố'),
+              ),
+              IncidentTimeField(value: _occurredAt, onTap: _chooseTime),
+              IncidentPhotoField(
+                photo: _photo,
+                onPick: _pickingPhotos ? null : _addPhoto,
+                onRemove: _pickingPhotos
+                    ? null
+                    : () => setState(() => _photo = null),
+              ),
+              if (_isTeacher) ...[
+                const SizedBox(height: 16),
+                _buildTeachingSupport(),
+              ],
               const SizedBox(height: 16),
-              _buildTeachingSupport(),
-            ],
-            const SizedBox(height: 16),
-            FilledButton.icon(
-              onPressed: _pickingPhotos ? null : _submit,
-              icon: const Icon(Icons.send_outlined, size: 18),
-              label: const Text('Gửi báo cáo'),
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                minimumSize: const Size.fromHeight(46),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
+              FilledButton.icon(
+                onPressed: _pickingPhotos || _submitting ? null : _submit,
+                icon: const Icon(Icons.send_outlined, size: 18),
+                label: Text(_submitting ? 'Đang gửi...' : 'Gửi báo cáo'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size.fromHeight(46),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
                 ),
               ),
-            ),
-          ],
+              if (_submitError case final error?)
+                Text(
+                  error,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+            ],
+          ),
         ),
       ),
     );

@@ -1,11 +1,48 @@
 # Backend Supabase
 
-Flutter chưa kết nối Supabase. Project từ xa `UTHBookingApp` đã có các bảng
-`profiles`, `rooms`, `equipment`, `bookings` và `incident_reports`, cùng trigger
-tạo hồ sơ khi có tài khoản Auth. Khi kiểm tra, Supabase chưa ghi nhận migration
-nào cho schema này.
+Flutter dùng Supabase cho xác thực, đọc hồ sơ, lưu ảnh đại diện và đọc danh
+mục tài sản trong màn Lịch, Báo cáo và luồng bảo trì của kỹ thuật viên.
+Project từ xa `UTHBookingApp` có các bảng `profiles`, `rooms`, `equipment`,
+`bookings` và `incident_reports`, cùng trigger tạo hồ sơ khi có tài khoản Auth.
+Danh mục app lấy phòng chưa lưu trữ (`is_archived = false`) từ `rooms`
+và thiết bị chung từ `equipment`
+với `room_id IS NULL`. Năm thiết bị chung đã được thêm trên UTHBookingApp.
+Sinh viên và giảng viên đọc ca đã giữ, tạo đơn, xem và hủy đơn chờ duyệt
+qua Supabase. Ô ca chỉ nhận UUID tài sản và giờ bắt đầu. Đơn chờ duyệt
+và đã duyệt giữ ca theo ràng buộc chống trùng của PostgreSQL.
 
-## Migration nền tảng đang chờ duyệt
+Migration `connect_mobile_incident_reports_and_evidence` nối phần gửi, xem
+và hủy báo cáo của sinh viên và giảng viên với `incident_reports`. Tùy
+chọn hỗ trợ ngay thuộc giảng viên và yêu cầu nhập lớp đang dạy. Ảnh PNG
+được lưu ở bucket riêng tư `incident-images` theo tài khoản, tối đa 5 MB.
+Luồng tiếp nhận của kỹ thuật viên và đề xuất bảo trì vẫn mô phỏng trong app.
+
+Migration `expose_approved_technician_usage_schedule` cấp cho kỹ thuật viên
+đang hoạt động quyền xem tài sản, địa điểm, ca và trạng thái của các lượt
+đã duyệt hoặc hoàn thành trong tuần. API lịch kỹ thuật không trả danh tính
+người đăng ký hay các trường của đơn cá nhân.
+
+Migration `prevent_overlapping_student_room_bookings` chặn một sinh viên
+giữ hai phòng có thời gian trùng nhau. Đơn chờ duyệt và đã duyệt giữ ca.
+Migration `limit_lecturer_library_room_bookings` loại phòng thư viện khỏi
+danh sách đặt phòng của giảng viên theo cờ `rooms.allows_teacher_booking`.
+Giảng viên chọn lớp học phần khi đặt phòng máy. Đơn thiết bị chỉ cần chọn ca.
+
+Migration `prepare_mobile_bookings_and_teaching_sections` và
+`expose_busy_booking_slots_without_user_details` đã áp dụng trên
+`UTHBookingApp`. Lớp thật được nhập vào `teaching_sections` với mã lớp,
+tên lớp và UUID giảng viên được phân công.
+
+Migration `create_booking_in_app_notifications` ghi thông báo khi tạo
+đơn hoặc đổi trạng thái. Người nhận đọc và cập nhật cờ đã đọc, đã lưu
+trên thông báo của mình. App làm mới hộp thông báo khi mở và mỗi 30 giây.
+Migration `allow_users_to_delete_own_in_app_notifications` cho phép xóa
+theo nhóm ID trong hộp thông báo của chính tài khoản.
+
+## Bản nháp schema ban đầu
+
+Bản nháp này có quy tắc đặt lịch cũ và cần đối chiếu với các migration
+đã áp dụng trước khi tái sử dụng.
 
 [`secure_booking_foundation.draft.sql`](secure_booking_foundation.draft.sql) dựa
 trên schema hiện tại của `UTHBookingApp`. SQL này cần chạy trong một giao dịch
@@ -49,6 +86,11 @@ khi triển khai. Bản sao schema là fixture kiểm thử, chưa phải migrat
 đã đăng ký của project từ xa.
 
 ## Các phần cần triển khai tiếp
+
+- Dùng UUID của tài sản khi lưu đăng ký, báo sự cố và đề xuất bảo trì.
+- Cập nhật bản nháp đăng ký cho đúng nghiệp vụ hiện tại. Sinh viên được
+  đăng ký phòng cho nhóm từ 10 người trong giới hạn sức chứa. Giảng viên
+  đăng ký phòng theo lớp học phần được phân công.
 
 - Tách đơn khỏi tài sản đăng ký khi triển khai nhiều thiết bị trong một đơn.
   Mô hình chỗ ngồi cần định danh từng chỗ và kiểm tra xung đột giữa đặt chỗ

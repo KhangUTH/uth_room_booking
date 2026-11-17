@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 
-import '../widgets/home_stats_card.dart';
-import '../widgets/home_action_cards.dart';
-import '../widgets/home_notice_card.dart';
+import 'package:uth_room_booking/theme/app_colors.dart';
 
 import '../../../theme/app_text_sizes.dart';
-
 import '../../notifications/data/sample_notices.dart';
-
-import 'package:uth_room_booking/theme/app_colors.dart';
+import '../../notifications/models/app_notice.dart';
+import '../widgets/home_action_cards.dart';
+import '../widgets/home_notice_card.dart';
+import '../widgets/home_stats_card.dart';
 
 class HomeDashboard extends StatelessWidget {
   const HomeDashboard({
@@ -19,18 +18,25 @@ class HomeDashboard extends StatelessWidget {
     required this.onEquipment,
     required this.onSchedule,
     required this.onHistory,
+    this.notices = demoNotices,
+    this.onRefresh,
+    this.counts,
   });
 
-  final int availableRooms;
+  final int? availableRooms;
   final VoidCallback onNotifications;
   final VoidCallback onRooms;
   final VoidCallback onEquipment;
   final VoidCallback onSchedule;
   final VoidCallback onHistory;
+  final List<AppNotice> notices;
+  final Future<void> Function()? onRefresh;
+  final ({int upcoming, int inUse, int used})? counts;
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
+    final content = SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
       child: Stack(
         children: [
           const Positioned(
@@ -52,7 +58,7 @@ class HomeDashboard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const HomeStatsCard(),
+                HomeStatsCard(counts: counts),
                 const SizedBox(height: 22),
                 const _SectionTitle('Bạn muốn đăng ký gì?'),
                 const SizedBox(height: 10),
@@ -60,7 +66,9 @@ class HomeDashboard extends StatelessWidget {
                   first: HomeActionCard(
                     icon: Icons.desktop_windows_outlined,
                     title: 'Đặt phòng máy',
-                    subtitle: 'Còn $availableRooms phòng trống',
+                    subtitle: availableRooms == null
+                        ? 'Xem danh mục và chọn ca'
+                        : 'Còn $availableRooms phòng trống',
                     onTap: onRooms,
                     featured: true,
                   ),
@@ -76,7 +84,9 @@ class HomeDashboard extends StatelessWidget {
                   first: HomeActionCard(
                     icon: Icons.calendar_today_outlined,
                     title: 'Lịch của tôi',
-                    subtitle: '2 lịch sắp tới',
+                    subtitle: counts == null
+                        ? 'Xem lịch đăng ký'
+                        : '${counts!.upcoming} lịch sắp tới',
                     onTap: onSchedule,
                   ),
                   second: HomeActionCard(
@@ -99,13 +109,14 @@ class HomeDashboard extends StatelessWidget {
                     ),
                   ],
                 ),
-                for (final notice in demoNotices.take(2))
+                if (notices.isEmpty) const Text('Chưa có thông báo'),
+                for (final notice in notices.take(2))
                   Padding(
                     padding: const EdgeInsets.only(bottom: 8),
                     child: HomeNoticeCard(
                       notice.icon,
                       notice.title,
-                      notice.metadata,
+                      notice.age.isEmpty ? notice.message : notice.metadata,
                       notice.age,
                     ),
                   ),
@@ -115,6 +126,10 @@ class HomeDashboard extends StatelessWidget {
         ],
       ),
     );
+    final refresh = onRefresh;
+    return refresh == null
+        ? content
+        : RefreshIndicator(onRefresh: refresh, child: content);
   }
 }
 

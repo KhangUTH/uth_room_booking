@@ -1,13 +1,19 @@
 import '../../auth/models/user_role.dart';
 import '../models/booking.dart';
 
-const bookingStartTimes = ['07:00', '09:30', '13:00', '15:30'];
-const bookingEndTimes = ['09:00', '11:30', '15:00', '17:30'];
+const sampleLibraryRoomName = 'Phòng thư viện';
 
 const List<CourseSection> sampleTeachingCourses = [
-  (code: 'CNTT301', name: 'Lập trình di động'),
-  (code: 'CNTT302', name: 'Cơ sở dữ liệu'),
-  (code: 'CNTT303', name: 'Phát triển ứng dụng web'),
+  (code: 'CN2302E', name: 'Lập trình Web'),
+  (code: 'CN2301B', name: 'Lập trình thiết bị di động'),
+  (code: 'CN2302C', name: 'Lập trình mạng'),
+];
+
+const _freeSlots = [
+  SlotStatus.free,
+  SlotStatus.free,
+  SlotStatus.free,
+  SlotStatus.free,
 ];
 
 const List<BookingAsset> sampleBookingRooms = [
@@ -45,10 +51,10 @@ const List<BookingAsset> sampleBookingRooms = [
     ],
   ),
   (
-    name: 'Phòng thư viện',
+    name: sampleLibraryRoomName,
     detail: 'Tòa K · Tầng 1 · 20 máy',
     capacity: 20,
-    slots: [SlotStatus.free, SlotStatus.free, SlotStatus.free, SlotStatus.free],
+    slots: _freeSlots,
   ),
 ];
 
@@ -68,19 +74,19 @@ const List<BookingAsset> sampleBookingEquipment = [
     name: 'Bàn phím A4Tech KR-83',
     detail: 'Thiết bị chung',
     capacity: 0,
-    slots: [SlotStatus.free, SlotStatus.free, SlotStatus.free, SlotStatus.free],
+    slots: _freeSlots,
   ),
   (
     name: 'Tai nghe Logitech H340',
     detail: 'Thiết bị chung',
     capacity: 0,
-    slots: [SlotStatus.free, SlotStatus.free, SlotStatus.free, SlotStatus.free],
+    slots: _freeSlots,
   ),
   (
     name: 'Chuột Logitech M331 Silent Plus',
     detail: 'Thiết bị chung',
     capacity: 0,
-    slots: [SlotStatus.free, SlotStatus.free, SlotStatus.free, SlotStatus.free],
+    slots: _freeSlots,
   ),
   (
     name: 'Micro TOA DM-1100',

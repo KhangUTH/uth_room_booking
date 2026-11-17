@@ -1,22 +1,24 @@
 import 'package:flutter/material.dart';
 
-import '../widgets/technician_page_title.dart';
-
+import '../../booking/data/asset_catalog.dart';
 import '../../booking/models/booking.dart';
-import '../controllers/maintenance_proposal_controller.dart';
-import '../widgets/maintenance_proposal_dialog.dart';
-import '../widgets/maintenance_proposal_card.dart';
 import '../../booking/widgets/booking_category_tabs.dart';
+import '../controllers/maintenance_proposal_controller.dart';
+import '../widgets/maintenance_proposal_card.dart';
+import '../widgets/maintenance_proposal_dialog.dart';
+import '../widgets/technician_page_title.dart';
 
 class MaintenanceProposalsPage extends StatefulWidget {
   const MaintenanceProposalsPage({
     super.key,
     required this.controller,
     this.initialAsset,
+    this.catalog,
   });
 
   final MaintenanceProposalController controller;
   final BookingAsset? initialAsset;
+  final AssetCatalog? catalog;
 
   @override
   State<MaintenanceProposalsPage> createState() =>
@@ -42,6 +44,7 @@ class _MaintenanceProposalsPageState extends State<MaintenanceProposalsPage> {
       widget.controller,
       asset: asset,
       rooms: _rooms,
+      assets: _rooms ? widget.catalog?.rooms : widget.catalog?.equipment,
     );
     if (!mounted || proposal == null) return;
     setState(() => widget.controller.submit(proposal));

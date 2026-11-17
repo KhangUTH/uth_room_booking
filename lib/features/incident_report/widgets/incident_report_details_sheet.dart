@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 
 import '../../../shared/widgets/evidence_photos.dart';
@@ -17,11 +19,13 @@ class IncidentReportDetailsSheet extends StatelessWidget {
     required this.report,
     required this.status,
     this.updatedAt,
+    this.evidence,
   });
 
   final IncidentReport report;
   final IncidentStatus status;
   final DateTime? updatedAt;
+  final Future<Uint8List?>? evidence;
 
   @override
   Widget build(BuildContext sheetContext) => FractionallySizedBox(
@@ -96,7 +100,24 @@ class IncidentReportDetailsSheet extends StatelessWidget {
                   ),
                 ),
                 const IncidentFieldTitle('Hình ảnh minh chứng'),
-                if (report.photos.isEmpty)
+                if (evidence case final request?)
+                  FutureBuilder<Uint8List?>(
+                    future: request,
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.done &&
+                          snapshot.data == null) {
+                        return const _ReportPlaceholder(
+                          Icons.image_outlined,
+                          'Không tải được ảnh. Mở lại chi tiết để thử lại.',
+                        );
+                      }
+                      final photo = snapshot.data;
+                      return photo == null
+                          ? const LinearProgressIndicator()
+                          : EvidencePhotos(photos: [photo]);
+                    },
+                  )
+                else if (report.photos.isEmpty)
                   const _ReportPlaceholder(
                     Icons.image_outlined,
                     'Chưa có ảnh đính kèm',

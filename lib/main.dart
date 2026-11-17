@@ -3,12 +3,14 @@ import 'dart:async';
 import "package:flutter/material.dart";
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
-import "package:uth_room_booking/theme/app_theme.dart";
-import 'package:uth_room_booking/core/router/app_router.dart';
-import 'package:uth_room_booking/core/router/app_route.dart';
+
 import 'package:uth_room_booking/core/platform/app_permissions.dart';
-import 'package:uth_room_booking/features/auth/presentation/login_page.dart';
+import 'package:uth_room_booking/core/router/app_route.dart';
+import 'package:uth_room_booking/core/router/app_router.dart';
 import 'package:uth_room_booking/features/technician/data/demo_incident_queue.dart';
+import "package:uth_room_booking/theme/app_theme.dart";
+
+import 'features/auth/data/remembered_session_storage.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();

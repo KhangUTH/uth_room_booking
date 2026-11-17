@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../theme/app_colors.dart';
-import '../../booking/data/sample_booking_data.dart';
 import '../../booking/models/booking.dart';
 import '../models/maintenance_proposal.dart';
 import 'maintenance_proposal_details_sheet.dart';

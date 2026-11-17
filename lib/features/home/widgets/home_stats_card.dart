@@ -8,7 +8,9 @@ const _border = Color(0xFFD6E6E7);
 const _muted = Color(0xFF526E74);
 
 class HomeStatsCard extends StatelessWidget {
-  const HomeStatsCard({super.key});
+  const HomeStatsCard({super.key, this.counts});
+
+  final ({int upcoming, int inUse, int used})? counts;
 
   @override
   Widget build(BuildContext context) {
@@ -25,14 +27,14 @@ class HomeStatsCard extends StatelessWidget {
           ),
         ],
       ),
-      child: const IntrinsicHeight(
+      child: IntrinsicHeight(
         child: Row(
           children: [
-            Expanded(child: _Stat('2', 'Lịch sắp tới')),
-            VerticalDivider(width: 1, color: _border),
-            Expanded(child: _Stat('1', 'Đang sử dụng')),
-            VerticalDivider(width: 1, color: _border),
-            Expanded(child: _Stat('12', 'Đã sử dụng')),
+            Expanded(child: _Stat(counts?.upcoming, 'Lịch sắp tới')),
+            const VerticalDivider(width: 1, color: _border),
+            Expanded(child: _Stat(counts?.inUse, 'Đang sử dụng')),
+            const VerticalDivider(width: 1, color: _border),
+            Expanded(child: _Stat(counts?.used, 'Đã sử dụng')),
           ],
         ),
       ),
@@ -42,7 +44,7 @@ class HomeStatsCard extends StatelessWidget {
 
 class _Stat extends StatelessWidget {
   const _Stat(this.value, this.label);
-  final String value;
+  final int? value;
   final String label;
 
   @override
@@ -52,7 +54,7 @@ class _Stat extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Text(
-          value,
+          value?.toString() ?? '—',
           style: const TextStyle(
             color: AppColors.primary,
             fontSize: AppTextSizes.metric,
