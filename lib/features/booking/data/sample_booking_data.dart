@@ -5,10 +5,9 @@ const bookingStartTimes = ['07:00', '09:30', '13:00', '15:30'];
 const bookingEndTimes = ['09:00', '11:30', '15:00', '17:30'];
 
 const List<CourseSection> sampleTeachingCourses = [
-  (code: 'CNTT301', name: 'Lập trình di động', group: 'Nhóm 02'),
-  (code: 'CNTT301', name: 'Lập trình di động', group: 'Nhóm 03'),
-  (code: 'CNTT302', name: 'Cơ sở dữ liệu', group: 'Nhóm 01'),
-  (code: 'CNTT303', name: 'Phát triển ứng dụng web', group: 'Nhóm 01'),
+  (code: 'CNTT301', name: 'Lập trình di động'),
+  (code: 'CNTT302', name: 'Cơ sở dữ liệu'),
+  (code: 'CNTT303', name: 'Phát triển ứng dụng web'),
 ];
 
 const List<BookingAsset> sampleBookingRooms = [
@@ -55,8 +54,8 @@ const List<BookingAsset> sampleBookingRooms = [
 
 const List<BookingAsset> sampleBookingEquipment = [
   (
-    name: 'Máy chiếu Epson',
-    detail: 'Thiết bị trình chiếu · Tòa B2',
+    name: 'Ổ điện',
+    detail: 'Thiết bị chung',
     capacity: 0,
     slots: [
       SlotStatus.free,
@@ -66,8 +65,26 @@ const List<BookingAsset> sampleBookingEquipment = [
     ],
   ),
   (
-    name: 'Laptop Dell',
-    detail: 'Thiết bị học tập · Tòa B1',
+    name: 'Bàn phím A4Tech KR-83',
+    detail: 'Thiết bị chung',
+    capacity: 0,
+    slots: [SlotStatus.free, SlotStatus.free, SlotStatus.free, SlotStatus.free],
+  ),
+  (
+    name: 'Tai nghe Logitech H340',
+    detail: 'Thiết bị chung',
+    capacity: 0,
+    slots: [SlotStatus.free, SlotStatus.free, SlotStatus.free, SlotStatus.free],
+  ),
+  (
+    name: 'Chuột Logitech M331 Silent Plus',
+    detail: 'Thiết bị chung',
+    capacity: 0,
+    slots: [SlotStatus.free, SlotStatus.free, SlotStatus.free, SlotStatus.free],
+  ),
+  (
+    name: 'Micro TOA DM-1100',
+    detail: 'Thiết bị chung',
     capacity: 0,
     slots: [
       SlotStatus.free,
@@ -99,7 +116,7 @@ List<Booking> createSampleBookings(DateTime today, UserRole role) {
           index: 0,
         ),
         asset: sampleBookingRooms[1],
-        section: role == UserRole.teacher ? sampleTeachingCourses[2] : null,
+        section: role == UserRole.teacher ? sampleTeachingCourses[1] : null,
         studentCount: role == UserRole.student ? 10 : null,
         status: BookingStatus.rejected,
       ),

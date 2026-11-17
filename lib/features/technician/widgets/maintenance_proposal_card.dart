@@ -28,59 +28,57 @@ class MaintenanceProposalCard extends StatelessWidget {
       MaintenanceStatus.cancelled => AppColors.textMuted,
     };
     return TechnicianPanel(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          spacing: 6,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              spacing: 8,
-              children: [
-                Icon(
-                  proposal.asset.capacity > 0
-                      ? Icons.apartment_outlined
-                      : Icons.devices_other_outlined,
-                  color: AppColors.primary,
-                ),
-                Expanded(
-                  child: Text(
-                    proposal.asset.name,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
+      child: InkWell(
+        onTap: () => showModalBottomSheet<void>(
+          context: context,
+          isScrollControlled: true,
+          useSafeArea: true,
+          showDragHandle: true,
+          builder: (context) => MaintenanceProposalDetailsSheet(
+            proposal: proposal,
+            statusColor: color,
+            scheduleLabel: _scheduleLabel(context, schedule),
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            spacing: 6,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                spacing: 8,
+                children: [
+                  Icon(
+                    proposal.asset.capacity > 0
+                        ? Icons.apartment_outlined
+                        : Icons.devices_other_outlined,
+                    color: AppColors.primary,
                   ),
-                ),
-                TaskBadge(label: proposal.status.label, color: color),
-              ],
-            ),
-            Text(proposal.asset.detail),
-            Text(proposal.reason, maxLines: 2, overflow: TextOverflow.ellipsis),
-            Text(_scheduleLabel(context, schedule)),
-            Wrap(
-              spacing: 8,
-              children: [
-                if (proposal.status == MaintenanceStatus.pending)
-                  TextButton(
-                    onPressed: onCancel,
-                    child: const Text('Hủy đề xuất'),
-                  ),
-                TextButton(
-                  onPressed: () => showModalBottomSheet<void>(
-                    context: context,
-                    isScrollControlled: true,
-                    useSafeArea: true,
-                    showDragHandle: true,
-                    builder: (context) => MaintenanceProposalDetailsSheet(
-                      proposal: proposal,
-                      statusColor: color,
-                      scheduleLabel: _scheduleLabel(context, schedule),
+                  Expanded(
+                    child: Text(
+                      proposal.asset.name,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                   ),
-                  child: const Text('Xem chi tiết'),
+                  TaskBadge(label: proposal.status.label, color: color),
+                ],
+              ),
+              Text(proposal.asset.detail),
+              Text(
+                proposal.reason,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              Text(_scheduleLabel(context, schedule)),
+              if (proposal.status == MaintenanceStatus.pending)
+                TextButton(
+                  onPressed: onCancel,
+                  child: const Text('Hủy đề xuất'),
                 ),
-              ],
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

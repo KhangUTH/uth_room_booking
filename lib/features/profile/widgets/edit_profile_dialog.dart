@@ -4,6 +4,7 @@ Future<({String email, String phone})?> showEditProfileDialog(
   BuildContext context, {
   required String initialEmail,
   required String initialPhone,
+  bool emailReadOnly = false,
 }) {
   var email = initialEmail;
   var phone = initialPhone;
@@ -21,6 +22,7 @@ Future<({String email, String phone})?> showEditProfileDialog(
         children: [
           TextFormField(
             initialValue: initialEmail,
+            readOnly: emailReadOnly,
             decoration: const InputDecoration(labelText: 'Email'),
             keyboardType: TextInputType.emailAddress,
             textInputAction: TextInputAction.next,

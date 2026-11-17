@@ -17,37 +17,44 @@ import 'package:uth_room_booking/theme/app_colors.dart';
 const _muted = Color(0xFF526E74);
 const _headingColor = Color(0xFF303638);
 
-enum _Category { rooms, equipment, mine }
+enum BookingCategory { rooms, equipment, mine }
 
 class ScheduleView extends StatefulWidget {
-  const ScheduleView({super.key, required this.role});
+  const ScheduleView({super.key, required this.bookings, this.categoryRequest});
 
-  final UserRole role;
+  final BookingController bookings;
+  final ({BookingCategory category, int sequence})? categoryRequest;
 
   @override
   State<ScheduleView> createState() => _ScheduleViewState();
 }
 
 class _ScheduleViewState extends State<ScheduleView> {
-  final _today = DateUtils.dateOnly(DateTime.now());
-  late final _bookings = BookingController(
-    today: _today,
-    role: widget.role,
-    initialBookings: createSampleBookings(_today, widget.role),
-  );
+  BookingController get _bookings => widget.bookings;
+  DateTime get _today => _bookings.today;
 
-  bool get _isMine => _category == _Category.mine;
+  bool get _isMine => _category == BookingCategory.mine;
   late DateTime _date = _today;
-  _Category _category = _Category.rooms;
+  late BookingCategory _category =
+      widget.categoryRequest?.category ?? BookingCategory.rooms;
   bool _showAllBookingDates = false;
   int _slotIndex = 0;
+
+  @override
+  void didUpdateWidget(covariant ScheduleView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final request = widget.categoryRequest;
+    if (request != null && request != oldWidget.categoryRequest) {
+      _category = request.category;
+    }
+  }
 
   void _chooseDate(DateTime date) => setState(() {
     _date = date;
     _showAllBookingDates = false;
   });
 
-  List<BookingAsset> get _visibleAssets => _category == _Category.rooms
+  List<BookingAsset> get _visibleAssets => _category == BookingCategory.rooms
       ? sampleBookingRooms
       : sampleBookingEquipment;
 
@@ -60,8 +67,11 @@ class _ScheduleViewState extends State<ScheduleView> {
       constraints: const BoxConstraints(maxWidth: 720),
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black26,
-      builder: (_) =>
-          BookingConfirmationSheet(slot: slot, asset: asset, role: widget.role),
+      builder: (_) => BookingConfirmationSheet(
+        slot: slot,
+        asset: asset,
+        role: _bookings.role,
+      ),
     );
     if (!mounted || selection == null) return;
     final registered = _bookings.register(
@@ -150,7 +160,7 @@ class _ScheduleViewState extends State<ScheduleView> {
                   padding: const EdgeInsets.only(bottom: 10),
                   child: BookingHistoryCard(
                     booking: _bookings.bookingAt(index),
-                    onCancel: widget.role == UserRole.technician
+                    onCancel: _bookings.role == UserRole.technician
                         ? null
                         : () => _cancelBooking(index),
                   ),
@@ -167,7 +177,7 @@ class _ScheduleViewState extends State<ScheduleView> {
                 children: [
                   Expanded(
                     child: Text(
-                      _category == _Category.rooms
+                      _category == BookingCategory.rooms
                           ? 'Danh sách phòng'
                           : 'Danh sách thiết bị',
                       style: const TextStyle(
@@ -195,9 +205,9 @@ class _ScheduleViewState extends State<ScheduleView> {
                 ),
               if (_availableCount(assets, _slotIndex) > 0)
                 BookingHint(
-                  label: _category == _Category.rooms
+                  label: _category == BookingCategory.rooms
                       ? 'Chạm một phòng trống để đặt'
-                      : 'Chạm một thiết bị trống để mượn',
+                      : 'Chạm một thiết bị trống để đăng ký sử dụng',
                 ),
             ],
           ],
@@ -208,9 +218,9 @@ class _ScheduleViewState extends State<ScheduleView> {
 
   Widget _buildCategories() => BookingCategoryTabs(
     options: const [
-      (_Category.rooms, 'Phòng máy'),
-      (_Category.equipment, 'Thiết bị'),
-      (_Category.mine, 'Của tôi'),
+      (BookingCategory.rooms, 'Phòng máy'),
+      (BookingCategory.equipment, 'Thiết bị'),
+      (BookingCategory.mine, 'Của tôi'),
     ],
     selected: _category,
     onChanged: (category) {

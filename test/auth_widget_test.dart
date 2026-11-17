@@ -1,6 +1,18 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:uth_room_booking/core/router/app_route.dart';
 import 'package:uth_room_booking/core/router/app_router.dart';
+import 'package:uth_room_booking/features/auth/models/user_role.dart';
+import 'package:uth_room_booking/features/auth/widgets/technician_login_sheet.dart';
+import 'package:uth_room_booking/features/technician/data/demo_incident_queue.dart';
 import 'package:uth_room_booking/features/technician/widgets/technician_task_card.dart';
 import 'package:uth_room_booking/main.dart';
 import 'package:uth_room_booking/theme/app_theme.dart';
@@ -10,15 +22,235 @@ import 'package:uth_room_booking/features/auth/presentation/login_page.dart';
 
 import 'support/widget_test_helpers.dart';
 
-/// Bọc LoginPage trong MaterialApp có theme thật của app.
-Widget _loginApp() => MaterialApp(
-  theme: AppTheme.light,
-  home: const LoginPage(),
-  onGenerateRoute: AppRouter.onGenerateRoute,
+final _testSession = Session(
+  accessToken: 'test-access-token',
+  refreshToken: 'test-refresh-token',
+  tokenType: 'bearer',
+  user: const User(
+    id: 'test-user',
+    appMetadata: {},
+    userMetadata: {},
+    aud: 'authenticated',
+    createdAt: '',
+  ),
 );
 
+Future<HomeRouteArgs> _testAuthenticate(
+  String identifier,
+  String password,
+  UserRole role,
+) async {
+  if (password != 'mat-khau-demo') {
+    throw const AuthException('Thông tin đăng nhập không đúng.');
+  }
+  return (
+    name: 'Tài khoản kiểm thử',
+    id: identifier,
+    role: role,
+    faculty: null,
+  );
+}
+
+Widget _loginApp({bool useTestAuthentication = true}) {
+  final incidentQueue = DemoIncidentQueue();
+  final login = useTestAuthentication
+      ? const LoginPage.withTestAuthentication(authenticate: _testAuthenticate)
+      : const LoginPage();
+  return MaterialApp(
+    theme: AppTheme.light,
+    home: login,
+    onGenerateRoute: (settings) {
+      if (settings.name == AppRoute.login) {
+        return MaterialPageRoute<void>(
+          settings: settings,
+          builder: (_) => login,
+        );
+      }
+      return AppRouter.onGenerateRoute(settings, incidentQueue: incidentQueue);
+    },
+  );
+}
+
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  test('chỉ lưu phiên khi người dùng chọn ghi nhớ', () async {
+    SharedPreferences.setMockInitialValues({'sb-example-auth-token': 'old'});
+    FlutterSecureStorage.setMockInitialValues({});
+    final storage = RememberedSessionStorage('example.com');
+    await storage.initialize();
+    final legacy = await SharedPreferences.getInstance();
+    expect(legacy.containsKey('sb-example-auth-token'), isFalse);
+
+    await storage.persistSession('ignored');
+    expect(await const FlutterSecureStorage().readAll(), isEmpty);
+
+    await storage.remember(_testSession);
+    await storage.persistSession('refreshed');
+    final reopened = RememberedSessionStorage('example.com');
+    await reopened.initialize();
+    expect(await reopened.accessToken(), 'refreshed');
+
+    await reopened.removePersistedSession();
+    await reopened.persistSession('ignored');
+    expect(await const FlutterSecureStorage().readAll(), isEmpty);
+  });
+
+  testWidgets('mất phiên đóng màn hình con và quay về đăng nhập', (
+    tester,
+  ) async {
+    await useMobileScreen(tester);
+    final client = (await tester.runAsync(() async {
+      final client = SupabaseClient(
+        'https://example.com',
+        'test-key',
+        authOptions: const AuthClientOptions(autoRefreshToken: false),
+        httpClient: MockClient(
+          (request) async => request.url.path.endsWith('/logout')
+              ? http.Response('', 204)
+              : http.Response('{"message":"Not found"}', 404),
+        ),
+      );
+      await client.auth.recoverSession(jsonEncode(_testSession));
+      return client;
+    }))!;
+    addTearDown(() => tester.runAsync(client.dispose));
+
+    await tester.pumpWidget(MyApp(supabase: client));
+    final navigator = Navigator.of(tester.element(find.byType(SplashScreen)));
+    unawaited(
+      navigator.pushReplacementNamed<void, void>(
+        AppRoute.home,
+        arguments: (
+          name: 'Sinh viên kiểm thử',
+          id: 'SV01',
+          role: UserRole.student,
+          faculty: null,
+        ) as HomeRouteArgs,
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(MainShell), findsOneWidget);
+    unawaited(navigator.pushNamed<void>(AppRoute.equipment));
+    await tester.pumpAndSettle();
+
+    await client.auth.signOut(scope: SignOutScope.local);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.byType(LoginPage), findsOneWidget);
+    expect(navigator.canPop(), isFalse);
+    await unmountApp(tester);
+  });
+
+  testWidgets('không đóng bảng kỹ thuật viên khi đang xác thực', (
+    tester,
+  ) async {
+    await useMobileScreen(tester);
+    final authentication = Completer<HomeRouteArgs>();
+    HomeRouteArgs? result;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => TextButton(
+              onPressed: () async {
+                result = await showTechnicianLoginSheet(
+                  context,
+                  authenticate: (_, _, _) => authentication.future,
+                );
+              },
+              child: const Text('Mở đăng nhập'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Mở đăng nhập'));
+    await tester.pumpAndSettle();
+    final fields = find.byType(TextFormField);
+    await tester.enterText(fields.first, 'KT01');
+    await tester.enterText(fields.last, 'mat-khau-demo');
+    final submit = find.text('Đăng nhập');
+    await tester.ensureVisible(submit);
+    await tester.tap(submit);
+    await tester.pumpAndSettle();
+    await tester.binding.handlePopRoute();
+    await tester.tapAt(const Offset(8, 8));
+    await tester.pumpAndSettle();
+    expect(find.byType(TechnicianLoginSheet), findsOneWidget);
+    expect(result, isNull);
+
+    authentication.complete((
+      name: 'Kỹ thuật viên',
+      id: 'KT01',
+      role: UserRole.technician,
+      faculty: null,
+    ));
+    await tester.pumpAndSettle();
+    expect(find.byType(TechnicianLoginSheet), findsNothing);
+    expect(result?.role, UserRole.technician);
+  });
+
+  testWidgets('mất mạng hiện lỗi trong form và cho phép thử lại', (
+    tester,
+  ) async {
+    await useMobileScreen(tester);
+    final client = (await tester.runAsync(
+      () async => SupabaseClient(
+        'https://example.com',
+        'test-key',
+        authOptions: const AuthClientOptions(autoRefreshToken: false),
+        httpClient: MockClient((request) async {
+          throw http.ClientException('Network unavailable', request.url);
+        }),
+      ),
+    ))!;
+    addTearDown(() => tester.runAsync(client.dispose));
+    await tester.pumpWidget(MaterialApp(home: LoginPage(supabase: client)));
+    final fields = find.byType(TextFormField);
+    final button = find.widgetWithText(ElevatedButton, 'Đăng nhập');
+    await tester.enterText(fields.last, 'mat-khau-demo');
+    for (final identifier in ['12345', 'student@example.com']) {
+      await tester.enterText(fields.first, identifier);
+      await tester.ensureVisible(button);
+      await tester.tap(button);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(
+        find.text('Không thể kết nối. Kiểm tra mạng rồi thử lại.'),
+        findsOneWidget,
+        reason: 'Kiểm tra khi đăng nhập bằng $identifier',
+      );
+      expect(find.byType(SnackBar), findsNothing);
+      expect(tester.widget<ElevatedButton>(button).onPressed, isNotNull);
+      expect(find.text(identifier), findsOneWidget);
+    }
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   group('Splash', () {
+    testWidgets('mở đúng Trang chủ khi khôi phục được hồ sơ', (tester) async {
+      await useMobileScreen(tester);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SplashScreen(
+            restoreSession: () async => (
+              name: 'Giảng viên kiểm thử',
+              id: 'GV01',
+              role: UserRole.teacher,
+              faculty: 'Công nghệ thông tin',
+            ),
+          ),
+          onGenerateRoute: AppRouter.onGenerateRoute,
+        ),
+      );
+      await tester.pump(const Duration(seconds: 3));
+      await tester.pumpAndSettle();
+      expect(find.byType(MainShell), findsOneWidget);
+      expect(find.text('Xin chào, Giảng viên'), findsOneWidget);
+      await unmountApp(tester);
+    });
+
     testWidgets('application starts on the splash screen', (tester) async {
       await useMobileScreen(tester);
 
@@ -42,9 +274,7 @@ void main() {
       tester,
     ) async {
       await useMobileScreen(tester);
-      await tester.pumpWidget(const MyApp());
-      await tester.pump(const Duration(seconds: 10));
-      await tester.pump(const Duration(seconds: 1));
+      await tester.pumpWidget(_loginApp());
 
       Future<void> login(String id) async {
         final fields = find.byType(TextFormField);
@@ -154,7 +384,7 @@ void main() {
       // 'Sinh viên' xuất hiện ở tab và ở tiêu đề form.
       expect(find.text('Sinh viên'), findsNWidgets(2));
       expect(find.text('Giảng viên'), findsOneWidget); // chỉ ở tab
-      expect(find.text('Mã sinh viên'), findsOneWidget);
+      expect(find.text('Mã sinh viên / Email'), findsOneWidget);
       expect(find.text('Mật khẩu'), findsOneWidget);
       expect(find.byType(TextFormField), findsNWidgets(2));
       expect(find.widgetWithText(ElevatedButton, 'Đăng nhập'), findsOneWidget);
@@ -173,9 +403,25 @@ void main() {
       await tester.pump(const Duration(milliseconds: 600));
 
       expect(find.text('Giảng viên'), findsNWidgets(2)); // tab + tiêu đề
-      expect(find.text('Mã giáo viên'), findsOneWidget);
-      expect(find.text('Mã sinh viên'), findsNothing);
+      expect(find.text('Mã giảng viên / Email'), findsOneWidget);
+      expect(find.text('Mã sinh viên / Email'), findsNothing);
 
+      await unmountApp(tester);
+    });
+
+    testWidgets('thiếu cấu hình xác thực thì không vào Trang chủ', (
+      tester,
+    ) async {
+      await useMobileScreen(tester);
+      await tester.pumpWidget(_loginApp(useTestAuthentication: false));
+      final fields = find.byType(TextFormField);
+      await tester.enterText(fields.first, '21110234');
+      await tester.enterText(fields.last, 'mat-khau-demo');
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Đăng nhập'));
+      await tester.pump();
+      await tester.pump();
+      expect(find.text('Chưa cấu hình hệ thống đăng nhập.'), findsOneWidget);
+      expect(find.byType(MainShell), findsNothing);
       await unmountApp(tester);
     });
 

@@ -15,7 +15,12 @@ abstract final class AppRoute {
   static const taskEvidence = '/technician/task/evidence';
 }
 
-typedef HomeRouteArgs = ({String name, String id, UserRole role});
+typedef HomeRouteArgs = ({
+  String name,
+  String id,
+  UserRole role,
+  String? faculty,
+});
 
 typedef NotificationsRouteArgs = ({
   Set<int> read,

@@ -45,8 +45,12 @@ class MaintenanceAssetField extends StatelessWidget {
                       child: _AssetOption(
                         name: asset.name,
                         icon: switch (asset.name) {
-                          'Máy chiếu Epson' => Icons.videocam_outlined,
-                          'Laptop Dell' => Icons.laptop_outlined,
+                          'Ổ điện' => Icons.power_outlined,
+                          'Bàn phím A4Tech KR-83' => Icons.keyboard_outlined,
+                          'Tai nghe Logitech H340' => Icons.headphones_outlined,
+                          'Chuột Logitech M331 Silent Plus' =>
+                            Icons.mouse_outlined,
+                          'Micro TOA DM-1100' => Icons.mic_none,
                           _ => categoryIcon,
                         },
                         selected: field.value == asset,

@@ -67,7 +67,7 @@ class HomeDashboard extends StatelessWidget {
                   second: HomeActionCard(
                     icon: Icons.phone_android,
                     title: 'Thiết bị',
-                    subtitle: 'Laptop, máy chiếu…',
+                    subtitle: 'Đăng ký sử dụng theo ca',
                     onTap: onEquipment,
                   ),
                 ),

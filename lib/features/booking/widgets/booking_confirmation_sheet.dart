@@ -191,7 +191,7 @@ class _BookingConfirmationSheetState extends State<BookingConfirmationSheet> {
                         DropdownMenuItem(
                           value: course,
                           child: Text(
-                            '${course.code} · ${course.name} - ${course.group}',
+                            '${course.code} · ${course.name}',
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),

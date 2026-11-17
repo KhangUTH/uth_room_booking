@@ -157,6 +157,7 @@ void main() {
             name: 'Kỹ thuật viên demo',
             id: 'KT-0217',
             role: UserRole.technician,
+            faculty: null,
           ),
         );
     await tester.pumpAndSettle();
@@ -189,6 +190,7 @@ void main() {
             name: 'Trần Minh Khoa',
             id: 'gv00871',
             role: UserRole.teacher,
+            faculty: null,
           ),
         );
     await tester.pumpAndSettle();

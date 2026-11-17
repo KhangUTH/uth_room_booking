@@ -33,7 +33,7 @@ void main() {
     await tester.tap(find.text('Phòng, thiết bị'));
     await tester.pumpAndSettle();
     expect(find.text('Phòng và thiết bị phụ trách'), findsOneWidget);
-    expect(find.text('Hoạt động · 4'), findsOneWidget);
+    expect(find.text('Hoạt động · 7'), findsOneWidget);
     expect(find.text('Bảo trì · 2'), findsOneWidget);
     expect(find.text('Có sự cố'), findsNothing);
     expect(tester.widget<BottomNavigationBar>(navigation).currentIndex, 0);
@@ -62,6 +62,12 @@ void main() {
     await tester.tap(find.text('Gửi đề xuất'));
     await tester.pumpAndSettle();
     expect(find.text('Vệ sinh máy trạm'), findsOneWidget);
+    expect(find.text('Xem chi tiết'), findsNothing);
+    await tester.tap(find.text('Vệ sinh máy trạm'));
+    await tester.pumpAndSettle();
+    expect(find.text('Chi tiết đề xuất'), findsOneWidget);
+    expect(await tester.binding.handlePopRoute(), isTrue);
+    await tester.pumpAndSettle();
     expect(find.text('Chờ duyệt'), findsOneWidget);
     await tester.tap(find.text('Hủy đề xuất'));
     await tester.pumpAndSettle();
@@ -140,7 +146,7 @@ void main() {
 
     await tester.tap(find.text('Thiết bị'));
     await tester.pumpAndSettle();
-    expect(find.text('Máy chiếu Epson'), findsOneWidget);
+    expect(find.text('Ổ điện'), findsOneWidget);
     await tester.tap(find.byTooltip('Tuần sau'));
     await tester.pumpAndSettle();
     expect(find.text('Không có lịch đã duyệt trong ngày này'), findsOneWidget);

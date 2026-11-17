@@ -1,4 +1,9 @@
 create schema if not exists private;
+alter table public.profiles
+  add column if not exists faculty text,
+  add column phone text,
+  add column notifications_enabled boolean not null default true;
+
 revoke all on schema private from public, anon, authenticated;
 grant usage on schema private to authenticated;
 
@@ -25,7 +30,7 @@ $$;
 revoke all on public.profiles, public.rooms, public.equipment, public.bookings, public.incident_reports
   from public, anon, authenticated;
 grant select on public.profiles, public.rooms, public.equipment, public.bookings, public.incident_reports to authenticated;
-grant update (full_name) on public.profiles to authenticated;
+grant update (full_name, phone, notifications_enabled) on public.profiles to authenticated;
 grant insert (room_id, equipment_id, start_time, end_time, purpose), update (status) on public.bookings to authenticated;
 grant insert (room_id, equipment_id, title, description) on public.incident_reports to authenticated;
 

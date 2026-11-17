@@ -1,4 +1,9 @@
+import 'dart:typed_data';
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../auth/models/user_role.dart';
 import '../widgets/app_permission_settings.dart';
@@ -12,11 +17,79 @@ const _line = Color(0xFFD6E6E7);
 const _muted = Color(0xFF526E74);
 const _red = Color(0xFFCB313B);
 
+class ProfileAvatarStorage {
+  ProfileAvatarStorage(this._client, String userId)
+    : _path = '$userId/avatar.png';
+
+  final SupabaseClient _client;
+  final String _path;
+
+  StorageFileApi get _bucket => _client.storage.from('profile-avatars');
+
+  Future<Uint8List?> load() async {
+    try {
+      return await _bucket.download(_path);
+    } on Exception {
+      return null;
+    }
+  }
+
+  Future<Uint8List?> pickAndSave() async {
+    final photo = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 512,
+      maxHeight: 512,
+      requestFullMetadata: false,
+    );
+    if (photo == null) return null;
+    final codec = await ui.instantiateImageCodec(await photo.readAsBytes());
+    try {
+      final frame = await codec.getNextFrame();
+      try {
+        final data = await frame.image.toByteData(
+          format: ui.ImageByteFormat.png,
+        );
+        if (data == null || data.lengthInBytes > 2 * 1024 * 1024) {
+          throw const FormatException('Ảnh đại diện không hợp lệ.');
+        }
+        final bytes = data.buffer.asUint8List(
+          data.offsetInBytes,
+          data.lengthInBytes,
+        );
+        await _bucket.uploadBinary(
+          _path,
+          bytes,
+          fileOptions: const FileOptions(
+            contentType: 'image/png',
+            cacheControl: '0',
+            upsert: true,
+          ),
+        );
+        return bytes;
+      } finally {
+        frame.image.dispose();
+      }
+    } finally {
+      codec.dispose();
+    }
+  }
+}
+
 class ProfileView extends StatefulWidget {
-  const ProfileView({super.key, required this.id, required this.role});
+  const ProfileView({
+    super.key,
+    required this.id,
+    required this.role,
+    this.onSignOut,
+    this.accountEmail,
+    this.faculty,
+  });
 
   final String id;
   final UserRole role;
+  final Future<void> Function()? onSignOut;
+  final String? accountEmail;
+  final String? faculty;
 
   @override
   State<ProfileView> createState() => _ProfileViewState();
@@ -24,6 +97,7 @@ class ProfileView extends StatefulWidget {
 
 class _ProfileViewState extends State<ProfileView> {
   bool _notifications = true;
+  bool _noticeVisible = false;
   String _email = '';
   String _phone = '';
 
@@ -36,19 +110,15 @@ class _ProfileViewState extends State<ProfileView> {
   Future<void> _editProfile() async {
     final changes = await showEditProfileDialog(
       context,
-      initialEmail: _email,
+      initialEmail: widget.accountEmail ?? _email,
       initialPhone: _phone,
+      emailReadOnly: widget.accountEmail != null,
     );
     if (changes == null || !mounted) return;
     setState(() {
       _email = changes.email;
       _phone = changes.phone;
     });
-  }
-
-  void _comingSoon(String label) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text('$label đang được phát triển.')));
   }
 
   Future<void> _confirmLogout() async {
@@ -70,6 +140,19 @@ class _ProfileViewState extends State<ProfileView> {
       ),
     );
     if (confirmed != true || !mounted) return;
+    try {
+      await widget.onSignOut?.call();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Không thể đăng xuất. Vui lòng thử lại.'),
+          ),
+        );
+      }
+      return;
+    }
+    if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
     Navigator.of(context)
         .pushNamedAndRemoveUntil<void>(AppRoute.login, (_) => false);
   }
@@ -93,8 +176,8 @@ class _ProfileViewState extends State<ProfileView> {
         rows: [
           _info(Icons.badge_outlined, _idLabel, widget.id),
           if (widget.role != UserRole.technician)
-            _info(Icons.apartment_outlined, 'Khoa', ''),
-          _info(Icons.mail_outline, 'Email', _email),
+            _info(Icons.apartment_outlined, 'Khoa', widget.faculty ?? ''),
+          _info(Icons.mail_outline, 'Email', widget.accountEmail ?? _email),
           _info(Icons.phone_outlined, 'Số điện thoại', _phone),
         ],
       ),
@@ -162,10 +245,24 @@ class _ProfileViewState extends State<ProfileView> {
     caption: label,
   );
 
+  Future<void> _showDevelopmentNotice() async {
+    if (_noticeVisible) return;
+    _noticeVisible = true;
+    try {
+      await ScaffoldMessenger.of(context)
+          .showSnackBar(
+            const SnackBar(content: Text('Tính năng đang phát triển.')),
+          )
+          .closed;
+    } finally {
+      _noticeVisible = false;
+    }
+  }
+
   Widget _action(IconData icon, String title) => _ProfileRow(
     icon: icon,
     title: title,
-    onTap: () => _comingSoon(title),
+    onTap: _showDevelopmentNotice,
     trailing: const Icon(Icons.chevron_right, color: _muted, size: 18),
   );
 }

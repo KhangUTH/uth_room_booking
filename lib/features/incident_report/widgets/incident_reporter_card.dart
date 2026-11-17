@@ -49,7 +49,13 @@ class IncidentReporterCard extends StatelessWidget {
                   'Người báo cáo',
                   style: TextStyle(color: _muted, fontSize: 11),
                 ),
-                Text(name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                Text(
+                  name,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
+                ),
               ],
             ),
           ),

@@ -1,4 +1,4 @@
-typedef CourseSection = ({String code, String name, String group});
+typedef CourseSection = ({String code, String name});
 
 enum SlotStatus { free, booked, mine, maintenance }
 

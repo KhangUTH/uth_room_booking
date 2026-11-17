@@ -25,16 +25,23 @@ insert into public.bookings (equipment_id, start_time, end_time, purpose) values
   ('20000000-0000-0000-0000-000000000001', '2099-01-01 01:30Z', '2099-01-01 02:30Z', 'overlap'),
   ('20000000-0000-0000-0000-000000000001', '2099-01-01 02:00Z', '2099-01-01 03:00Z', 'adjacent'),
   ('20000000-0000-0000-0000-000000000001', '2099-01-01 02:00Z', '2099-01-01 03:00Z', 'cancel');
-update public.profiles set full_name = 'Student test';
+update public.profiles
+  set full_name = 'Student test', phone = '0900000000', notifications_enabled = false;
 update public.bookings set status = 'cancelled' where purpose = 'cancel';
 
 do $$
 begin
   assert (select count(*) from public.profiles) = 1;
+  assert (select phone = '0900000000' and not notifications_enabled from public.profiles);
   assert (select status from public.bookings where purpose = 'cancel') = 'cancelled';
   begin
     update public.profiles set role = 'technician';
     raise exception 'Student could modify role';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    update public.profiles set faculty = 'Other faculty', email = 'other@ut.edu.vn';
+    raise exception 'Student could modify managed profile fields';
   exception when insufficient_privilege then null;
   end;
   begin
@@ -81,6 +88,8 @@ select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000004
 do $$
 begin
   assert (select count(*) from public.equipment) = 0;
+  update public.profiles set phone = '0900000001';
+  assert not found;
 end
 $$;
 

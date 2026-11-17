@@ -1,12 +1,18 @@
 import 'login_password_options.dart';
 
 import "package:flutter/material.dart";
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:uth_room_booking/core/router/app_route.dart';
 import "package:uth_room_booking/theme/app_colors.dart";
 
-Future<String?> showTechnicianLoginSheet(BuildContext context) {
-  return showModalBottomSheet<String>(
+Future<HomeRouteArgs?> showTechnicianLoginSheet(
+  BuildContext context, {
+  required Future<HomeRouteArgs> Function(String, String, bool) authenticate,
+}) {
+  return showModalBottomSheet<HomeRouteArgs>(
     context: context,
     isScrollControlled: true, // để sheet đẩy lên theo bàn phím
+    enableDrag: false,
     useSafeArea: true,
     backgroundColor: Colors.white,
     clipBehavior: Clip.antiAlias,
@@ -14,12 +20,14 @@ Future<String?> showTechnicianLoginSheet(BuildContext context) {
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
     ),
-    builder: (_) => const TechnicianLoginSheet(),
+    builder: (_) => TechnicianLoginSheet(authenticate: authenticate),
   );
 }
 
 class TechnicianLoginSheet extends StatefulWidget {
-  const TechnicianLoginSheet({super.key});
+  const TechnicianLoginSheet({super.key, required this.authenticate});
+
+  final Future<HomeRouteArgs> Function(String, String, bool) authenticate;
 
   @override
   State<TechnicianLoginSheet> createState() => _TechnicianLoginSheetState();
@@ -31,6 +39,9 @@ class _TechnicianLoginSheetState extends State<TechnicianLoginSheet> {
   final _passCtrl = TextEditingController();
 
   bool _obscure = true;
+  bool _submitting = false;
+  bool _keepSignedIn = false;
+  String? _error;
 
   @override
   void dispose() {
@@ -39,11 +50,39 @@ class _TechnicianLoginSheetState extends State<TechnicianLoginSheet> {
     super.dispose();
   }
 
-  // DEMO: chưa có database, nhập gì cũng vào được (miễn không để trống).
-  // Sau này thay đoạn này bằng gọi API / Firebase Auth.
-  void _submit() {
-    if (!_formKey.currentState!.validate()) return;
-    Navigator.pop(context, _idCtrl.text.trim());
+  Future<void> _submit() async {
+    if (_submitting ||
+        ModalRoute.of(context)?.isCurrent == false ||
+        !_formKey.currentState!.validate()) {
+      return;
+    }
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _submitting = true;
+      _error = null;
+    });
+    try {
+      final profile = await widget.authenticate(
+        _idCtrl.text.trim(),
+        _passCtrl.text,
+        _keepSignedIn,
+      );
+      if (mounted) Navigator.pop(context, profile);
+    } on AuthException catch (error) {
+      if (mounted) {
+        setState(
+          () => _error = error.code == 'invalid_credentials'
+              ? 'Thông tin đăng nhập hoặc mật khẩu không đúng.'
+              : error.message,
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _error = 'Không thể đăng nhập. Vui lòng thử lại.');
+      }
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
   }
 
   @override
@@ -51,35 +90,32 @@ class _TechnicianLoginSheetState extends State<TechnicianLoginSheet> {
     // Đẩy nội dung lên khi bàn phím mở.
     final keyboard = MediaQuery.of(context).viewInsets.bottom;
 
-    return AnimatedPadding(
-      duration: const Duration(milliseconds: 150),
-      padding: EdgeInsets.only(bottom: keyboard),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildHandle(),
-            const SizedBox(height: 14),
-            _buildLogo(),
-            const SizedBox(height: 18),
-            _buildForm(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ==== THANH KÉO ====
-  Widget _buildHandle() {
-    return Center(
-      child: Container(
-        width: 36,
-        height: 4,
-        decoration: BoxDecoration(
-          color: const Color(0xFFD5DCDB),
-          borderRadius: BorderRadius.circular(999),
+    return PopScope<HomeRouteArgs>(
+      canPop: !_submitting,
+      child: AnimatedPadding(
+        duration: const Duration(milliseconds: 150),
+        padding: EdgeInsets.only(bottom: keyboard),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Align(
+                alignment: AlignmentDirectional.centerEnd,
+                child: IconButton(
+                  tooltip: 'Đóng đăng nhập kỹ thuật viên',
+                  onPressed: _submitting
+                      ? null
+                      : () => Navigator.maybePop(context),
+                  icon: const Icon(Icons.close),
+                ),
+              ),
+              _buildLogo(),
+              const SizedBox(height: 18),
+              _buildForm(),
+            ],
+          ),
         ),
       ),
     );
@@ -139,14 +175,14 @@ class _TechnicianLoginSheetState extends State<TechnicianLoginSheet> {
             style: TextStyle(fontSize: 12, color: AppColors.textMuted),
           ),
           const SizedBox(height: 18),
-          _label('Mã nhân viên'),
+          _label('Mã nhân viên / Email'),
           TextFormField(
             controller: _idCtrl,
-            keyboardType: TextInputType.text,
+            keyboardType: TextInputType.emailAddress,
             textInputAction: TextInputAction.next,
-            decoration: const InputDecoration(hintText: 'Nhập mã nhân viên'),
+            decoration: InputDecoration(hintText: 'Nhập mã nhân viên / Email'),
             validator: (v) => (v == null || v.trim().isEmpty)
-                ? 'Vui lòng nhập mã nhân viên'
+                ? 'Vui lòng nhập mã nhân viên hoặc email'
                 : null,
           ),
           const SizedBox(height: 14),
@@ -170,16 +206,29 @@ class _TechnicianLoginSheetState extends State<TechnicianLoginSheet> {
             validator: (v) =>
                 (v == null || v.isEmpty) ? 'Vui lòng nhập mật khẩu' : null,
           ),
-          const LoginPasswordOptions(),
+          LoginPasswordOptions(
+            keepSignedIn: _keepSignedIn,
+            onKeepSignedInChanged: _submitting
+                ? null
+                : (value) => setState(() => _keepSignedIn = value),
+          ),
+          if (_error case final message?)
+            Text(
+              message,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
           const SizedBox(height: 6),
           SizedBox(
             width: double.infinity,
             height: 50,
             child: ElevatedButton(
-              onPressed: _submit,
-              child: const Text(
-                'Đăng nhập',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+              onPressed: _submitting ? null : _submit,
+              child: Text(
+                _submitting ? 'Đang đăng nhập…' : 'Đăng nhập',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
           ),

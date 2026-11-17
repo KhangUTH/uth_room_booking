@@ -1,19 +1,34 @@
 import 'package:flutter/material.dart';
 
 class LoginPasswordOptions extends StatefulWidget {
-  const LoginPasswordOptions({super.key});
+  const LoginPasswordOptions({
+    super.key,
+    required this.keepSignedIn,
+    required this.onKeepSignedInChanged,
+  });
+
+  final bool keepSignedIn;
+  final ValueChanged<bool>? onKeepSignedInChanged;
 
   @override
   State<LoginPasswordOptions> createState() => _LoginPasswordOptionsState();
 }
 
 class _LoginPasswordOptionsState extends State<LoginPasswordOptions> {
-  bool _remember = false;
+  bool _noticeVisible = false;
 
-  void _showMessage(String message) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
+  Future<void> _showRecoveryNotice() async {
+    if (_noticeVisible) return;
+    _noticeVisible = true;
+    try {
+      await ScaffoldMessenger.of(context)
+          .showSnackBar(
+            const SnackBar(content: Text('Tính năng đang phát triển.')),
+          )
+          .closed;
+    } finally {
+      _noticeVisible = false;
+    }
   }
 
   @override
@@ -29,14 +44,14 @@ class _LoginPasswordOptionsState extends State<LoginPasswordOptions> {
           visualDensity: VisualDensity.compact,
           checkboxScaleFactor: .9,
           dense: true,
-          title: const Text('Nhớ mật khẩu', style: TextStyle(fontSize: 12)),
-          value: _remember,
-          onChanged: (value) {
-            setState(() => _remember = value ?? false);
-            if (_remember) {
-              _showMessage('Bản demo chưa lưu mật khẩu.');
-            }
-          },
+          title: const Text(
+            'Ghi nhớ đăng nhập',
+            style: TextStyle(fontSize: 12),
+          ),
+          value: widget.keepSignedIn,
+          onChanged: widget.onKeepSignedInChanged == null
+              ? null
+              : (value) => widget.onKeepSignedInChanged?.call(value ?? false),
         ),
         Align(
           alignment: AlignmentDirectional.centerEnd,
@@ -46,9 +61,7 @@ class _LoginPasswordOptionsState extends State<LoginPasswordOptions> {
               minimumSize: const Size(0, 32),
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
-            onPressed: () => _showMessage(
-              'Khôi phục mật khẩu sẽ khả dụng khi kết nối hệ thống đăng nhập.',
-            ),
+            onPressed: _showRecoveryNotice,
             child: const Text(
               'Quên mật khẩu?',
               textAlign: TextAlign.end,

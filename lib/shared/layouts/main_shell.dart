@@ -6,6 +6,9 @@ import 'package:uth_room_booking/core/router/app_route.dart';
 
 import '../../features/auth/models/user_role.dart';
 import '../../features/booking/models/booking.dart';
+import '../../features/booking/controllers/booking_controller.dart';
+import '../../features/booking/data/sample_booking_data.dart';
+import '../../features/booking/widgets/booking_history_card.dart';
 import '../../features/technician/controllers/maintenance_proposal_controller.dart';
 import '../../features/technician/presentation/maintenance_proposals_page.dart';
 import '../../features/technician/models/task_filter.dart';
@@ -60,6 +63,10 @@ class MainShell extends StatefulWidget {
   final String id;
   final UserRole role;
   final DemoIncidentQueue? incidentQueue;
+  final Future<void> Function()? onSignOut;
+  final String? accountEmail;
+  final String? faculty;
+  final ProfileAvatarStorage? avatarStorage;
 
   const MainShell({
     super.key,
@@ -67,6 +74,10 @@ class MainShell extends StatefulWidget {
     required this.id,
     this.role = UserRole.student,
     this.incidentQueue,
+    this.onSignOut,
+    this.accountEmail,
+    this.faculty,
+    this.avatarStorage,
   });
 
   @override
@@ -75,8 +86,49 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   _ShellTab _selectedTab = _ShellTab.home;
+  ({BookingCategory category, int sequence})? _bookingCategoryRequest;
   final _readNotices = <int>{};
   final _savedNotices = <int>{};
+  ImageProvider? _avatar;
+  bool _savingAvatar = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final storage = widget.avatarStorage;
+    if (storage != null) _loadAvatar(storage);
+  }
+
+  Future<void> _loadAvatar(ProfileAvatarStorage storage) async {
+    final bytes = await storage.load();
+    if (mounted && bytes != null && _avatar == null) {
+      setState(() => _avatar = MemoryImage(bytes));
+    }
+  }
+
+  Future<void> _changeAvatar() async {
+    final storage = widget.avatarStorage;
+    if (storage == null || _savingAvatar) return;
+
+    setState(() => _savingAvatar = true);
+    try {
+      final bytes = await storage.pickAndSave();
+      if (mounted && bytes != null) {
+        setState(() => _avatar = MemoryImage(bytes));
+      }
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..removeCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text('Không thể lưu ảnh đại diện. Vui lòng thử lại.'),
+          ),
+        );
+    } finally {
+      if (mounted) setState(() => _savingAvatar = false);
+    }
+  }
 
   late final _sampleJobs = createSampleTechnicianTasks();
   late final _incidentQueue = widget.incidentQueue ?? DemoIncidentQueue();
@@ -138,16 +190,23 @@ class _MainShellState extends State<MainShell> {
     if (mounted) setState(() {});
   }
 
-  void _selectTab(_ShellTab tab) {
+  void _selectTab(_ShellTab tab, {BookingCategory? bookingCategory}) {
     FocusManager.instance.primaryFocus?.unfocus();
     setState(() {
       _selectedTab = tab;
+      if (bookingCategory != null) {
+        _bookingCategoryRequest = (
+          category: bookingCategory,
+          sequence: (_bookingCategoryRequest?.sequence ?? 0) + 1,
+        );
+      }
       _showTechnicianAssets = false;
       _showMaintenance = false;
     });
   }
 
   void _backWithinShell() {
+    FocusManager.instance.primaryFocus?.unfocus();
     if (_maintenanceVisible) {
       _closeMaintenance();
     } else if (_assetsVisible) {
@@ -180,10 +239,21 @@ class _MainShellState extends State<MainShell> {
       child: Scaffold(
         backgroundColor: AppColors.background,
         appBar: MyHeader(
+          greeting: switch (widget.role) {
+            UserRole.student => 'Xin chào, Sinh viên',
+            UserRole.teacher => 'Xin chào, Giảng viên',
+            UserRole.technician => 'Xin chào, Nhân viên kỹ thuật',
+          },
           continueIntoBody:
               _selectedTab.extendsHeader &&
               !_assetsVisible &&
               !_maintenanceVisible,
+          avatar: _avatar,
+          onAvatarTap:
+              _selectedTab == _ShellTab.profile && widget.avatarStorage != null
+              ? _changeAvatar
+              : null,
+          avatarBusy: _selectedTab == _ShellTab.profile && _savingAvatar,
           onBellTap: _openNotifications,
           hasUnreadNotifications: _notices.any(
             (notice) => !_readNotices.contains(notice.id),
@@ -221,7 +291,10 @@ class _MainShellState extends State<MainShell> {
                             onChanged: _refreshWork,
                             onSchedule: () => _setWorkSchedule(true),
                           ),
-                  _ShellTab.schedule => ScheduleView(role: widget.role),
+                  _ShellTab.schedule => ScheduleView(
+                    bookings: _bookings,
+                    categoryRequest: _bookingCategoryRequest,
+                  ),
                   _ShellTab.reports => IncidentReportView(
                     name: widget.name,
                     id: widget.id,
@@ -231,6 +304,9 @@ class _MainShellState extends State<MainShell> {
                   _ShellTab.profile => ProfileView(
                     id: widget.id,
                     role: widget.role,
+                    onSignOut: widget.onSignOut,
+                    accountEmail: widget.accountEmail,
+                    faculty: widget.faculty,
                   ),
                 },
             ],
@@ -269,27 +345,36 @@ class _MainShellState extends State<MainShell> {
     ],
   );
 
+  late final _bookings = _createBookingController();
+
+  BookingController _createBookingController() {
+    final today = DateUtils.dateOnly(DateTime.now());
+    return BookingController(
+      today: today,
+      role: widget.role,
+      initialBookings: createSampleBookings(today, widget.role),
+    );
+  }
+
   Widget _buildHomeContent() {
     return HomeDashboard(
       onNotifications: _openNotifications,
       availableRooms: sampleRooms
           .where((room) => room.status == 'Trống')
           .length,
-      onRooms: () => Navigator.of(context).pushNamed<void>(AppRoute.rooms),
-      onEquipment: () =>
-          Navigator.of(context).pushNamed<void>(AppRoute.equipment),
-      onSchedule: () => _selectTab(_ShellTab.schedule),
-      onHistory: () => showDialog<void>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Lịch sử'),
-          content: const Text('Tính năng lịch sử đang được phát triển.'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Đóng'),
-            ),
-          ],
+      onRooms: () => _selectTab(
+        _ShellTab.schedule,
+        bookingCategory: BookingCategory.rooms,
+      ),
+      onEquipment: () => _selectTab(
+        _ShellTab.schedule,
+        bookingCategory: BookingCategory.equipment,
+      ),
+      onSchedule: () =>
+          _selectTab(_ShellTab.schedule, bookingCategory: BookingCategory.mine),
+      onHistory: () => Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(
+          builder: (_) => BookingHistoryPage(bookings: _bookings),
         ),
       ),
     );

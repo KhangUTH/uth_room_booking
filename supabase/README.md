@@ -14,7 +14,14 @@ có, đồng thời giữ nguyên các bản ghi và khóa chính.
 
 - Sinh viên và giảng viên chỉ xem đăng ký, sự cố của mình. Cả hai có thể mượn
   thiết bị. Đặt nguyên phòng dành cho giảng viên. Hủy chỉ áp dụng với đơn chờ
-  duyệt. Người dùng chỉ được sửa họ tên trong hồ sơ qua Data API.
+  duyệt. Người dùng đọc hồ sơ của chính mình. Tài khoản đang hoạt động được
+  sửa họ tên, số điện thoại và tùy chọn nhận thông báo qua Data API.
+- Hồ sơ bổ sung `faculty`, `phone` và `notifications_enabled` theo màn hình
+  Cá nhân. Khoa có thể để trống và do quản trị cập nhật. Migration
+  `split_profile_codes_by_role` trên UTHBookingApp dùng `student_code` cho
+  sinh viên, `lecturer_code` cho giảng viên và `employee_code` cho kỹ thuật viên.
+  Khi kết nối Flutter, đổi email đăng nhập và mật khẩu qua Auth. Quyền camera
+  và ảnh được quản lý trên thiết bị.
 - Đơn chờ duyệt có thể trùng giờ. PostgreSQL từ chối hai đơn đã duyệt trùng
   tài sản, kể cả khi hai giao dịch duyệt đồng thời. Khoảng giờ `[bắt đầu, kết thúc)`
   cho phép hai lượt liền kề. Phòng ngừng hoạt động và thiết bị có trạng thái
@@ -54,6 +61,10 @@ khi triển khai. Bản sao schema là fixture kiểm thử, chưa phải migrat
   với quyền theo từng sự cố và giới hạn loại, kích thước tệp.
 
 ## Cấu trúc thư mục
+
+Migration đã áp dụng `scope_profile_reads_to_owner` giới hạn quyền đọc
+`profiles` theo `auth.uid()` cho cả ba vai trò. Edge Function đăng nhập
+bằng mã số tiếp tục tra cứu hồ sơ qua quyền máy chủ.
 
 - `migrations/`: migration `<timestamp>_<ten_thay_doi>.sql` khi triển khai database.
 - `tests/database/`: test quyền truy cập và ràng buộc nghiệp vụ.

@@ -5,7 +5,9 @@ import 'package:uth_room_booking/core/router/app_route.dart';
 import 'package:flutter/material.dart';
 
 class SplashScreen extends StatefulWidget {
-  const SplashScreen({super.key});
+  const SplashScreen({super.key, this.restoreSession});
+
+  final Future<HomeRouteArgs?> Function()? restoreSession;
 
   @override
   State<SplashScreen> createState() => _SplashScreenState();
@@ -27,9 +29,14 @@ class _SplashScreenState extends State<SplashScreen>
     )..repeat();
 
     // Sau 3 giây chuyển sang màn hình tiếp theo
-    _timer = Timer(const Duration(seconds: 3), () {
+    final pendingProfile = widget.restoreSession?.call();
+    _timer = Timer(const Duration(seconds: 3), () async {
+      final profile = await pendingProfile;
       if (!mounted) return;
-      Navigator.of(context).pushReplacementNamed<void, void>(AppRoute.login);
+      Navigator.of(context).pushReplacementNamed<void, void>(
+        profile == null ? AppRoute.login : AppRoute.home,
+        arguments: profile,
+      );
     });
   }
 

@@ -13,7 +13,7 @@ class MaintenanceProposalController {
         ),
         MaintenanceProposal(
           asset: sampleBookingEquipment.first,
-          reason: 'Kiểm tra nguồn cấp máy chiếu.',
+          reason: 'Kiểm tra nguồn cấp ổ điện.',
           status: MaintenanceStatus.rejected,
         ),
       ];

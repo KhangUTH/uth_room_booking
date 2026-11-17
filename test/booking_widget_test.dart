@@ -33,7 +33,7 @@ void main() {
       find.descendant(of: sheet, matching: find.byIcon(Icons.arrow_drop_down)),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('CNTT301 · Lập trình di động - Nhóm 03').last);
+    await tester.tap(find.text('CNTT301 · Lập trình di động').last);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Đặt phòng'));
     await tester.pumpAndSettle();
@@ -41,7 +41,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Phòng B1-201'), findsOneWidget);
     expect(find.text('Mã học phần'), findsWidgets);
-    expect(find.text('Lập trình di động - Nhóm 03'), findsOneWidget);
+    expect(find.text('Lập trình di động'), findsOneWidget);
     expect(find.text('13:00 – 15:00'), findsWidgets);
     expect(find.text('Chờ duyệt'), findsOneWidget);
   });
@@ -96,13 +96,13 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Ca 1'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Máy chiếu Epson'));
+    await tester.tap(find.text('Ổ điện'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Đặt thiết bị'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Của tôi'));
     await tester.pumpAndSettle();
-    expect(find.text('Máy chiếu Epson'), findsOneWidget);
+    expect(find.text('Ổ điện'), findsOneWidget);
     expect(find.text('Phòng B1-201'), findsOneWidget);
 
     await tester.tap(find.byTooltip('Tuần sau'));
@@ -110,6 +110,20 @@ void main() {
     expect(find.text('Bạn chưa có đăng ký trong ngày này'), findsOneWidget);
     await tester.tap(find.text('Tất cả ngày'));
     await tester.pumpAndSettle();
-    expect(find.text('Máy chiếu Epson'), findsOneWidget);
+    expect(find.text('Ổ điện'), findsOneWidget);
+
+    await tester.tap(find.text('Trang chủ'));
+    await tester.pumpAndSettle();
+    final history = find.text('Lịch sử');
+    await tester.ensureVisible(history);
+    await tester.tap(history);
+    await tester.pumpAndSettle();
+    expect(find.text('Lịch sử đăng ký'), findsOneWidget);
+    expect(find.text('Phòng B1-201'), findsOneWidget);
+    expect(find.text('Đã hủy'), findsOneWidget);
+    await tester.tap(find.text('Thiết bị'));
+    await tester.pumpAndSettle();
+    expect(find.text('Ổ điện'), findsOneWidget);
+    expect(find.text('Phòng B1-201'), findsNothing);
   });
 }

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../features/auth/presentation/login_page.dart';
 import '../../features/equipment/presentation/device_list_page.dart';
 import '../../features/room/presentation/room_list_page.dart';
 import '../../features/splash/presentation/splash_screen.dart';
+import '../../features/profile/presentation/profile_view.dart';
 import '../../features/technician/data/demo_incident_queue.dart';
 import '../../features/technician/presentation/task_details_page.dart';
 import '../../features/technician/presentation/task_evidence_page.dart';
@@ -15,15 +17,45 @@ abstract final class AppRouter {
   static Route<void> onGenerateRoute(
     RouteSettings settings, {
     DemoIncidentQueue? incidentQueue,
+    SupabaseClient? supabase,
+    RememberedSessionStorage? sessionStorage,
   }) {
+    if (settings.name == AppRoute.home &&
+        supabase != null &&
+        supabase.auth.currentSession == null) {
+      return MaterialPageRoute<void>(
+        settings: const RouteSettings(name: AppRoute.login),
+        builder: (_) =>
+            LoginPage(supabase: supabase, sessionStorage: sessionStorage),
+      );
+    }
     final page = switch ((settings.name, settings.arguments)) {
-      (AppRoute.splash, _) => const SplashScreen(),
-      (AppRoute.login, _) => const LoginPage(),
+      (AppRoute.splash, _) => SplashScreen(
+        restoreSession: supabase == null
+            ? null
+            : () => restoreRememberedLogin(supabase),
+      ),
+      (AppRoute.login, _) => LoginPage(
+        supabase: supabase,
+        sessionStorage: sessionStorage,
+      ),
       (AppRoute.home, HomeRouteArgs args) => MainShell(
         name: args.name,
         id: args.id,
         role: args.role,
+        faculty: args.faculty,
         incidentQueue: incidentQueue,
+        onSignOut: supabase == null
+            ? null
+            : () => signOutFromApp(supabase, sessionStorage: sessionStorage),
+        accountEmail: supabase?.auth.currentUser?.email,
+        avatarStorage: switch ((supabase, supabase?.auth.currentUser?.id)) {
+          (final client?, final userId?) => ProfileAvatarStorage(
+            client,
+            userId,
+          ),
+          _ => null,
+        },
       ),
       (AppRoute.rooms, _) => const RoomListPage(),
       (AppRoute.equipment, _) => const DeviceListPage(),
