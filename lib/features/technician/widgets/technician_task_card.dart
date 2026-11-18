@@ -159,8 +159,25 @@ class TechnicianTaskCard extends StatelessWidget {
                                     horizontal: 8,
                                   ),
                                 ),
-                                onPressed: () {
-                                  if (task.advance()) onChanged();
+                                onPressed: () async {
+                                  try {
+                                    if (await task.advance() &&
+                                        context.mounted) {
+                                      onChanged();
+                                    }
+                                  } catch (_) {
+                                    if (context.mounted) {
+                                      onChanged();
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                            const SnackBar(
+                                              content: Text(
+                                                'Không thể cập nhật công việc. Vui lòng thử lại.',
+                                              ),
+                                            ),
+                                          );
+                                    }
+                                  }
                                 },
                                 child: Text(
                                   action,

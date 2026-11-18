@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../auth/models/user_role.dart';
+import '../data/profile_contact_store.dart';
 import '../widgets/app_permission_settings.dart';
 import '../widgets/edit_profile_dialog.dart';
 
@@ -20,6 +21,7 @@ class ProfileView extends StatefulWidget {
     this.onSignOut,
     this.accountEmail,
     this.faculty,
+    this.contactStore,
   });
 
   final String id;
@@ -27,6 +29,7 @@ class ProfileView extends StatefulWidget {
   final Future<void> Function()? onSignOut;
   final String? accountEmail;
   final String? faculty;
+  final ProfileContactStore? contactStore;
 
   @override
   State<ProfileView> createState() => _ProfileViewState();
@@ -37,6 +40,38 @@ class _ProfileViewState extends State<ProfileView> {
   bool _noticeVisible = false;
   String _email = '';
   String _phone = '';
+  bool _phoneLoaded = false;
+  bool _updatingProfile = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.contactStore != null) _loadPhone();
+  }
+
+  Future<bool> _loadPhone() async {
+    final store = widget.contactStore;
+    if (store == null) return true;
+    setState(() => _updatingProfile = true);
+    try {
+      final phone = await store.loadPhone();
+      if (!mounted) return false;
+      setState(() {
+        _phone = phone;
+        _phoneLoaded = true;
+      });
+      return true;
+    } catch (_) {
+      return false;
+    } finally {
+      if (mounted) setState(() => _updatingProfile = false);
+    }
+  }
+
+  void _showProfileError(String message) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
+  }
 
   String get _idLabel => switch (widget.role) {
     UserRole.student => 'Mã số sinh viên',
@@ -45,11 +80,20 @@ class _ProfileViewState extends State<ProfileView> {
   };
 
   Future<void> _editProfile() async {
+    if (!_phoneLoaded && !await _loadPhone()) {
+      if (mounted) {
+        _showProfileError('Không tải được số điện thoại. Vui lòng thử lại.');
+      }
+      return;
+    }
+    if (!mounted) return;
+    final store = widget.contactStore;
     final changes = await showEditProfileDialog(
       context,
       initialEmail: widget.accountEmail ?? _email,
       initialPhone: _phone,
       emailReadOnly: widget.accountEmail != null,
+      onSavePhone: store?.savePhone,
     );
     if (changes == null || !mounted) return;
     setState(() {
@@ -102,7 +146,7 @@ class _ProfileViewState extends State<ProfileView> {
         children: [
           const Expanded(child: _SectionTitle('Thông tin cá nhân')),
           TextButton.icon(
-            onPressed: _editProfile,
+            onPressed: _updatingProfile ? null : _editProfile,
             icon: const Icon(Icons.edit_outlined, size: 15),
             label: const Text('Chỉnh sửa'),
             style: TextButton.styleFrom(foregroundColor: AppColors.primary),

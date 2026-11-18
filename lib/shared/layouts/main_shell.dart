@@ -21,16 +21,20 @@ import '../../features/notifications/data/notice_store.dart';
 import '../../features/notifications/data/sample_notices.dart';
 import '../../features/notifications/models/app_notice.dart';
 import '../../features/profile/data/profile_avatar_storage.dart';
+import '../../features/profile/data/profile_contact_store.dart';
 import '../../features/profile/presentation/profile_view.dart';
 import '../../features/technician/controllers/maintenance_proposal_controller.dart';
+import '../../features/technician/controllers/technician_work_controller.dart';
 import '../../features/technician/data/demo_incident_queue.dart';
+import '../../features/technician/data/technician_incident_store.dart';
 import '../../features/technician/models/task_filter.dart';
-import '../../features/technician/models/technician_task.dart';
 import '../../features/technician/presentation/maintenance_proposals_page.dart';
 import '../../features/technician/presentation/technician_assets_page.dart';
 import '../../features/technician/presentation/technician_dashboard.dart';
 import '../../features/technician/presentation/technician_schedule_page.dart';
 import '../../features/technician/presentation/technician_work_view.dart';
+
+import 'shell_catalog_content.dart';
 
 enum _ShellTab {
   home(
@@ -73,9 +77,11 @@ class MainShell extends StatefulWidget {
   final String? accountEmail;
   final String? faculty;
   final ProfileAvatarStorage? avatarStorage;
+  final ProfileContactStore? contactStore;
   final Future<AssetCatalog> Function()? loadCatalog;
   final BookingStore? bookingStore;
   final NoticeStore? noticeStore;
+  final TechnicianIncidentStore? technicianIncidentStore;
 
   const MainShell({
     super.key,
@@ -88,9 +94,11 @@ class MainShell extends StatefulWidget {
     this.accountEmail,
     this.faculty,
     this.avatarStorage,
+    this.contactStore,
     this.loadCatalog,
     this.bookingStore,
     this.noticeStore,
+    this.technicianIncidentStore,
   });
 
   @override
@@ -127,40 +135,13 @@ class _MainShellState extends State<MainShell> {
     }
   }
 
-  Widget _withCatalog(Widget Function(AssetCatalog?) builder) {
-    final catalog = _catalog;
-    if (catalog == null) return builder(null);
-    return FutureBuilder<AssetCatalog>(
-      future: catalog,
-      builder: (context, snapshot) {
-        final available = snapshot.data ?? _lastCatalog;
-        if (available != null) return builder(available);
-        if (snapshot.connectionState != ConnectionState.done) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (snapshot.hasError) {
-          return RefreshIndicator(
-            onRefresh: _reloadCatalog,
-            child: CustomScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              slivers: [
-                SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: Center(
-                    child: TextButton(
-                      onPressed: _reloadCatalog,
-                      child: const Text('Không tải được danh mục. Thử lại'),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          );
-        }
-        return builder(snapshot.requireData);
-      },
-    );
-  }
+  Widget _withCatalog(Widget Function(AssetCatalog?) builder) =>
+      ShellCatalogContent(
+        catalog: _catalog,
+        lastCatalog: _lastCatalog,
+        onRefresh: _reloadCatalog,
+        builder: builder,
+      );
 
   @override
   void initState() {
@@ -168,6 +149,11 @@ class _MainShellState extends State<MainShell> {
     final storage = widget.avatarStorage;
     if (storage != null) _loadAvatar(storage);
     if (!_isTechnician && widget.bookingStore != null) _refreshHomeBookings();
+    if (_isTechnician) {
+      _workController
+        ..addListener(_workChanged)
+        ..refresh();
+    }
     widget.noticeStore
       ?..addListener(_noticeChanged)
       ..start();
@@ -177,7 +163,13 @@ class _MainShellState extends State<MainShell> {
 
   @override
   void dispose() {
-    if (!_isTechnician) _bookings.dispose();
+    if (_isTechnician) {
+      _workController
+        ..removeListener(_workChanged)
+        ..dispose();
+    } else {
+      _bookings.dispose();
+    }
     widget.noticeStore
       ?..removeListener(_noticeChanged)
       ..dispose();
@@ -215,9 +207,12 @@ class _MainShellState extends State<MainShell> {
     }
   }
 
-  late final _sampleJobs = createSampleTechnicianTasks();
   late final _incidentQueue = widget.incidentQueue ?? DemoIncidentQueue();
-  List<TechnicianTask> get _jobs => [..._incidentQueue.tasks, ..._sampleJobs];
+  late final _workController = TechnicianWorkController(
+    store: widget.technicianIncidentStore,
+    queue: _incidentQueue,
+  );
+
   TaskFilter? _workFilter = TaskFilter.pending;
   bool _showWorkSchedule = false;
   bool _showTechnicianAssets = false;
@@ -244,12 +239,13 @@ class _MainShellState extends State<MainShell> {
   void _setTechnicianAssets(bool value) =>
       setState(() => _showTechnicianAssets = value);
 
-  void _refreshWork() => setState(() {
+  void _workChanged() => setState(() {
     if (_workFilter == TaskFilter.urgent &&
-        !_jobs.any(TaskFilter.urgent.matches)) {
+        !_workController.jobs.any(TaskFilter.urgent.matches)) {
       _workFilter = null;
     }
   });
+
   void _setWorkSchedule(bool value) =>
       setState(() => _showWorkSchedule = value);
 
@@ -259,6 +255,7 @@ class _MainShellState extends State<MainShell> {
       (_isTechnician ? technicianNotices : demoNotices);
 
   void _openWork(TaskFilter? filter) {
+    _workController.refresh();
     FocusManager.instance.primaryFocus?.unfocus();
     setState(() {
       _workFilter = filter;
@@ -279,12 +276,14 @@ class _MainShellState extends State<MainShell> {
         notices: _notices,
         store: store,
         bookingStore: widget.bookingStore,
+        incidentStore: _isTechnician ? null : widget.incidentStore,
       ),
     );
     if (mounted && store == null) setState(() {});
   }
 
   void _selectTab(_ShellTab tab, {BookingCategory? bookingCategory}) {
+    if (tab == _ShellTab.work) _workController.refresh();
     FocusManager.instance.primaryFocus?.unfocus();
     setState(() {
       _selectedTab = tab;
@@ -381,12 +380,19 @@ class _MainShellState extends State<MainShell> {
                             active: _selectedTab == _ShellTab.work,
                           )
                         : TechnicianWorkView(
-                            jobs: _jobs,
+                            jobs: _workController.jobs,
                             filter: _workFilter,
                             onFilter: (filter) =>
                                 setState(() => _workFilter = filter),
-                            onChanged: _refreshWork,
+                            onChanged: _workController.taskChanged,
                             onSchedule: () => _setWorkSchedule(true),
+                            loading: _workController.loading,
+                            onRefresh: widget.technicianIncidentStore == null
+                                ? null
+                                : _workController.refresh,
+                            onRetry: _workController.loadFailed
+                                ? _workController.refresh
+                                : null,
                           ),
                   _ShellTab.schedule => _withCatalog(
                     (catalog) => ScheduleView(
@@ -405,8 +411,25 @@ class _MainShellState extends State<MainShell> {
                       role: widget.role,
                       queue: _incidentQueue,
                       store: widget.incidentStore,
+                      loadCourses: widget.bookingStore?.courses,
                       active: _selectedTab == _ShellTab.reports,
-                      roomNames: catalog?.rooms.map((room) => room.name),
+                      assetDetails: {
+                        for (final room in catalog?.rooms ?? [])
+                          room.name: room.detail.split(' · ').first,
+                        for (final device in catalog?.equipment ?? [])
+                          device.name: device.detail,
+                      },
+                      roomNames: catalog?.rooms
+                          .where(
+                            (room) =>
+                                room.slots.any(
+                                  (slot) => slot != SlotStatus.maintenance,
+                                ) &&
+                                (widget.role != UserRole.teacher ||
+                                    !catalog.roomsUnavailableToTeachers
+                                        .contains(room.name)),
+                          )
+                          .map((room) => room.name),
                       equipmentNames: catalog?.equipment.map(
                         (device) => device.name,
                       ),
@@ -418,6 +441,7 @@ class _MainShellState extends State<MainShell> {
                     onSignOut: widget.onSignOut,
                     accountEmail: widget.accountEmail,
                     faculty: widget.faculty,
+                    contactStore: widget.contactStore,
                   ),
                 },
             ],
@@ -438,7 +462,7 @@ class _MainShellState extends State<MainShell> {
         : (_showTechnicianAssets ? 1 : 0),
     children: [
       TechnicianDashboard(
-        jobs: _jobs,
+        jobs: _workController.jobs,
         notices: widget.noticeStore?.notices,
         onWork: _openWork,
         onNotifications: _openNotifications,

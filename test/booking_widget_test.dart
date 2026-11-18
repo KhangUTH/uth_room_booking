@@ -4,11 +4,46 @@ import 'package:uth_room_booking/core/router/app_router.dart';
 import 'package:uth_room_booking/features/auth/models/user_role.dart';
 import 'package:uth_room_booking/features/booking/controllers/booking_controller.dart';
 import 'package:uth_room_booking/features/booking/data/sample_booking_data.dart';
+import 'package:uth_room_booking/features/booking/widgets/booking_calendar.dart';
+import 'package:uth_room_booking/theme/app_colors.dart';
 import 'package:uth_room_booking/shared/layouts/main_shell.dart';
 
 import 'support/widget_test_helpers.dart';
 
 void main() {
+  testWidgets('chấm cam ngày mai chỉ hiện khi có lịch', (tester) async {
+    final today = DateTime(2026, 11, 17);
+    final tomorrow = DateTime(2026, 11, 18);
+    const orange = Color(0xFFE68726);
+
+    Future<void> showCalendar({required bool bookedTomorrow}) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: BookingCalendar(
+              date: today,
+              today: today,
+              hasSchedule: (day) =>
+                  bookedTomorrow && DateUtils.isSameDay(day, tomorrow),
+              onDateChanged: (_) {},
+            ),
+          ),
+        ),
+      );
+    }
+
+    Finder dots(Color color) => find.byWidgetPredicate(
+      (widget) => widget is CircleAvatar && widget.backgroundColor == color,
+    );
+
+    await showCalendar(bookedTomorrow: false);
+    expect(dots(orange), findsNothing);
+    expect(dots(AppColors.primary), findsOneWidget);
+    await showCalendar(bookedTomorrow: true);
+    expect(dots(orange), findsOneWidget);
+    expect(dots(AppColors.primary), findsOneWidget);
+  });
+
   test('sinh viên chỉ giữ một phòng trong cùng ca và ngày', () {
     final today = DateTime(2026, 11, 17);
     final day = DateTime(2026, 11, 18);
@@ -146,7 +181,7 @@ void main() {
     expect(find.text('Chờ duyệt'), findsOneWidget);
     await tester.tap(find.text('Hủy lịch'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Xác nhận hủy'));
+    await tester.tap(find.widgetWithText(TextButton, 'Xác nhận'));
     await tester.pumpAndSettle();
     expect(find.text('Đã hủy'), findsOneWidget);
     expect(find.text('Hủy lịch'), findsNothing);

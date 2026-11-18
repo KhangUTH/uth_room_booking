@@ -12,6 +12,16 @@ class AppTheme {
       seedColor: AppColors.primary,
       primary: AppColors.primary,
     ),
+    snackBarTheme: SnackBarThemeData(
+      behavior: SnackBarBehavior.floating,
+      insetPadding: const EdgeInsets.fromLTRB(14, 4, 14, 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: 0,
+      backgroundColor: AppColors.feedbackBackground,
+      contentTextStyle: const TextStyle(color: AppColors.primary),
+      actionTextColor: AppColors.primary,
+      closeIconColor: AppColors.primary,
+    ),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
         elevation: 0,

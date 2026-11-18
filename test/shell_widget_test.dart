@@ -22,9 +22,13 @@ class _ScheduleStore extends BookingStore {
   _ScheduleStore(super.client);
 
   int calls = 0;
+  int historyCalls = 0;
 
   @override
-  Future<List<({String id, Booking booking})>> history() async => [];
+  Future<List<({String id, Booking booking})>> history() async {
+    historyCalls++;
+    return [];
+  }
 
   @override
   Future<Set<BookingSlot>> busySlots(DateTime day, AssetCatalog catalog) async {
@@ -65,6 +69,15 @@ void main() {
     await tester.tap(find.text('Lịch'));
     await tester.pumpAndSettle();
     expect(store.calls, 1);
+    final historyCalls = store.historyCalls;
+    await tester.tap(find.text('Thiết bị'));
+    await tester.pumpAndSettle();
+    expect(find.text('Danh sách thiết bị'), findsOneWidget);
+    await tester.tap(find.text('Của tôi'));
+    await tester.pumpAndSettle();
+    expect(find.text('Bạn chưa có đăng ký trong ngày này'), findsOneWidget);
+    expect(store.calls, 1);
+    expect(store.historyCalls, historyCalls);
     await tester.tap(find.text('Trang chủ'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Lịch'));

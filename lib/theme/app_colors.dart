@@ -4,6 +4,7 @@ class AppColors {
   AppColors._();
 
   static const primary = Color(0xFF00767B); // teal chủ đạo
+  static const feedbackBackground = Color(0xFFEAF6F5);
   static const appBar = Color(0xFF046469);
   static const appBarAccent = Color(0xFF19777C);
   static const background = Color(0xFFF1F7F7);

@@ -7,16 +7,19 @@ import 'package:uth_room_booking/theme/app_colors.dart';
 const _pale = Color(0xFFDCEFEF);
 const _line = Color(0xFFD6E6E7);
 const _muted = Color(0xFF526E74);
+const _tomorrowDot = Color(0xFFE68726);
 
 class BookingCalendar extends StatelessWidget {
   const BookingCalendar({
     super.key,
     required this.date,
+    required this.today,
     required this.hasSchedule,
     required this.onDateChanged,
   });
 
   final DateTime date;
+  final DateTime today;
   final bool Function(DateTime) hasSchedule;
   final ValueChanged<DateTime> onDateChanged;
 
@@ -68,6 +71,14 @@ class BookingCalendar extends StatelessWidget {
 
   Widget _buildDay(DateTime day) {
     final selected = day == date;
+    final tomorrow = DateUtils.addDaysToDate(today, 1);
+    final dotColor = switch (day) {
+      _ when DateUtils.isSameDay(day, today) => AppColors.primary,
+      _ when DateUtils.isSameDay(day, tomorrow) && hasSchedule(day) =>
+        _tomorrowDot,
+      _ when hasSchedule(day) => AppColors.primary,
+      _ => Colors.transparent,
+    };
     return Material(
       color: selected ? _pale : Colors.white,
       shape: RoundedRectangleBorder(
@@ -92,12 +103,7 @@ class BookingCalendar extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 3),
-              CircleAvatar(
-                radius: 3,
-                backgroundColor: hasSchedule(day)
-                    ? AppColors.primary
-                    : Colors.transparent,
-              ),
+              CircleAvatar(radius: 3, backgroundColor: dotColor),
             ],
           ),
         ),

@@ -123,6 +123,7 @@ class _TechnicianSchedulePageState extends State<TechnicianSchedulePage> {
         const SizedBox(height: 8),
         BookingCalendar(
           date: _selectedDate,
+          today: _today,
           hasSchedule: (day) =>
               visibleSchedule.any((booking) => booking.slot.date == day),
           onDateChanged: _selectDate,

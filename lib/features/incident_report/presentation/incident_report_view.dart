@@ -1,9 +1,9 @@
-import 'dart:typed_data';
-
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 
 import '../../../shared/widgets/pill_tabs.dart';
 import '../../auth/models/user_role.dart';
+import '../../booking/models/booking.dart';
 import '../../technician/data/demo_incident_queue.dart';
 import '../data/incident_report_store.dart';
 import '../models/incident_report.dart';
@@ -21,7 +21,9 @@ class IncidentReportView extends StatefulWidget {
     this.avatar,
     this.roomNames,
     this.equipmentNames,
+    this.assetDetails = const {},
     this.store,
+    this.loadCourses,
     this.active = true,
   });
 
@@ -32,7 +34,9 @@ class IncidentReportView extends StatefulWidget {
   final ImageProvider? avatar;
   final Iterable<String>? roomNames;
   final Iterable<String>? equipmentNames;
+  final Map<String, String> assetDetails;
   final IncidentReportStore? store;
+  final Future<List<CourseSection>> Function()? loadCourses;
   final bool active;
 
   @override
@@ -44,7 +48,7 @@ class _IncidentReportViewState extends State<IncidentReportView> {
   late bool _showHistory =
       widget.store == null && widget.queue.reportsFor(_owner).isNotEmpty;
   final _reports = <int, StoredIncidentReport>{};
-  String? _submissionId;
+  ({String id, List<Object?> fields})? _submission;
   String? _historyMessage;
   bool _loadingHistory = false;
   int _historyRequest = 0;
@@ -98,13 +102,33 @@ class _IncidentReportViewState extends State<IncidentReportView> {
       ..addAll(previous);
   }
 
-  Future<bool> _submit(IncidentReport report) async {
+  Future<bool> _submit(
+    IncidentReport report,
+    ValueChanged<bool> onPhotoUploadChanged,
+  ) async {
     final store = widget.store;
     if (store != null) {
-      final id = _submissionId ??= store.newSubmissionId();
+      final fields = <Object?>[
+        report.type,
+        report.asset,
+        report.title,
+        report.description,
+        report.course,
+        report.needsSupport,
+        ...report.photos,
+      ];
+      final previous = _submission;
+      final id = previous != null && listEquals(previous.fields, fields)
+          ? previous.id
+          : store.newSubmissionId();
+      _submission = (id: id, fields: fields);
       final StoredIncidentReport saved;
       try {
-        saved = await store.submit(id, report);
+        saved = await store.submit(
+          id,
+          report,
+          onPhotoUploadChanged: onPhotoUploadChanged,
+        );
       } on FormatException {
         rethrow;
       } catch (_) {
@@ -112,7 +136,7 @@ class _IncidentReportViewState extends State<IncidentReportView> {
       }
       if (!mounted) return true;
       setState(() {
-        _submissionId = null;
+        _submission = null;
         _remember(saved);
         _showHistory = true;
       });
@@ -149,12 +173,14 @@ class _IncidentReportViewState extends State<IncidentReportView> {
           index: _showHistory ? 1 : 0,
           children: [
             IncidentReportForm(
+              loadCourses: widget.loadCourses,
               avatar: widget.avatar,
               name: widget.name,
               id: widget.id,
               role: widget.role,
               roomNames: widget.roomNames,
               equipmentNames: widget.equipmentNames,
+              assetDetails: widget.assetDetails,
               nextReportId: () =>
                   widget.store == null ? widget.queue.nextId : 0,
               onSubmitted: _submit,
@@ -197,9 +223,7 @@ class _IncidentReportViewState extends State<IncidentReportView> {
         ? widget.queue.progressFor(_owner, report)
         : (status: saved.status, updatedAt: saved.updatedAt);
     final evidence = saved?.hasPhoto == true
-        ? store
-              ?.loadPhoto(saved!.id)
-              .then<Uint8List?>((photo) => photo, onError: (Object _) => null)
+        ? store?.loadPhoto(saved!.id).catchError((Object _) => null)
         : null;
     final shouldCancel = await showModalBottomSheet<bool>(
       context: context,
@@ -210,6 +234,8 @@ class _IncidentReportViewState extends State<IncidentReportView> {
       builder: (_) => IncidentReportDetailsSheet(
         report: report,
         status: progress.status,
+        canCancel:
+            saved?.canCancel ?? progress.status == IncidentStatus.pending,
         updatedAt: progress.updatedAt,
         evidence: evidence,
       ),

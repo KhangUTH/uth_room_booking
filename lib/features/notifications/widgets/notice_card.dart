@@ -6,6 +6,54 @@ import '../models/app_notice.dart';
 const _muted = Color(0xFF596577);
 const _border = Color(0xFFDFE5EA);
 
+class NoticeDetailsSheet extends StatelessWidget {
+  const NoticeDetailsSheet({
+    super.key,
+    required this.notice,
+    this.relatedDetails,
+  });
+
+  final AppNotice notice;
+  final Widget? relatedDetails;
+
+  @override
+  Widget build(BuildContext context) => SafeArea(
+    top: false,
+    child: SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Align(
+            alignment: Alignment.centerLeft,
+            child: CircleAvatar(
+              backgroundColor: const Color(0xFFE3F2F3),
+              foregroundColor: AppColors.primary,
+              child: Icon(notice.icon),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(notice.title, style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 4),
+          Text(notice.metadata, style: const TextStyle(color: _muted)),
+          const SizedBox(height: 12),
+          SelectableText(notice.message),
+          if (relatedDetails case final details?) ...[
+            const SizedBox(height: 16),
+            details,
+          ],
+          const SizedBox(height: 16),
+          OutlinedButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Đóng'),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
 class NoticeCard extends StatelessWidget {
   const NoticeCard({
     super.key,
@@ -14,6 +62,7 @@ class NoticeCard extends StatelessWidget {
     required this.saved,
     required this.selecting,
     required this.selected,
+    this.opening = false,
     this.onTap,
     this.onLongPress,
     this.onSave,
@@ -24,6 +73,7 @@ class NoticeCard extends StatelessWidget {
   final bool saved;
   final bool selecting;
   final bool selected;
+  final bool opening;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
   final VoidCallback? onSave;
@@ -52,7 +102,16 @@ class NoticeCard extends StatelessWidget {
               radius: 20,
               backgroundColor: const Color(0xFFE3F2F3),
               foregroundColor: AppColors.primary,
-              child: Icon(notice.icon, size: 21),
+              child: opening
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppColors.primary,
+                        semanticsLabel: 'Đang mở chi tiết báo cáo',
+                      ),
+                    )
+                  : Icon(notice.icon, size: 21),
             ),
             const SizedBox(width: 12),
             Expanded(

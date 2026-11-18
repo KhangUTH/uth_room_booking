@@ -272,6 +272,42 @@ void main() {
   });
 
   group('LoginPage', () {
+    testWidgets('ô mô tả giữ focus khi chiều cao bàn phím thay đổi', (
+      tester,
+    ) async {
+      await useMobileScreen(tester);
+      addTearDown(tester.view.resetViewInsets);
+      await tester.pumpWidget(const MyApp());
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 10));
+      await tester.pump(const Duration(seconds: 1));
+
+      final navigator = Navigator.of(tester.element(find.byType(LoginPage)));
+      navigator.push(
+        MaterialPageRoute<void>(
+          builder: (_) => const MainShell(name: 'Sinh viên', id: 'SV01'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Báo cáo'));
+      await tester.pumpAndSettle();
+      final description = find.byType(TextFormField).last;
+      await tester.ensureVisible(description);
+      await tester.tap(description);
+      await tester.pumpAndSettle();
+      final editable = tester.widget<EditableText>(
+        find.descendant(of: description, matching: find.byType(EditableText)),
+      );
+      expect(editable.focusNode.hasFocus, isTrue);
+
+      tester.view.viewInsets = const FakeViewPadding(bottom: 220);
+      await tester.pump();
+      tester.view.viewInsets = const FakeViewPadding();
+      await tester.pump();
+      expect(editable.focusNode.hasFocus, isTrue);
+      await unmountApp(tester);
+    });
+
     testWidgets('sinh viên xem lại báo cáo đang xử lý sau khi đổi tài khoản', (
       tester,
     ) async {

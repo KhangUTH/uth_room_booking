@@ -12,6 +12,7 @@ class NoticeStore extends ChangeNotifier {
   final read = <int>{};
   final saved = <int>{};
   final _bookingIds = <int, String>{};
+  final _createdAt = <int, String>{};
   List<AppNotice> notices = [];
   Timer? _timer;
   Future<void>? _refreshing;
@@ -29,6 +30,8 @@ class NoticeStore extends ChangeNotifier {
   }
 
   String? bookingId(int noticeId) => _bookingIds[noticeId];
+
+  String? createdAt(int noticeId) => _createdAt[noticeId];
 
   Future<void> refresh() => _refreshing ??= _load().whenComplete(() {
     _refreshing = null;
@@ -55,10 +58,12 @@ class NoticeStore extends ChangeNotifier {
           ),
       ];
       _bookingIds.clear();
+      _createdAt.clear();
       read.clear();
       saved.clear();
       for (final row in rows) {
         final id = row['id'] as int;
+        _createdAt[id] = row['created_at'] as String;
         if (row['booking_id'] case final String bookingId) {
           _bookingIds[id] = bookingId;
         }
@@ -106,6 +111,7 @@ class NoticeStore extends ChangeNotifier {
     read.removeAll(ids);
     saved.removeAll(ids);
     _bookingIds.removeWhere((id, _) => ids.contains(id));
+    _createdAt.removeWhere((id, _) => ids.contains(id));
     notifyListeners();
   }
 

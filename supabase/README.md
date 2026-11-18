@@ -13,9 +13,26 @@ và đã duyệt giữ ca theo ràng buộc chống trùng của PostgreSQL.
 
 Migration `connect_mobile_incident_reports_and_evidence` nối phần gửi, xem
 và hủy báo cáo của sinh viên và giảng viên với `incident_reports`. Tùy
-chọn hỗ trợ ngay thuộc giảng viên và yêu cầu nhập lớp đang dạy. Ảnh PNG
+chọn hỗ trợ ngay thuộc giảng viên. Lớp học phần là tùy chọn và được lấy
+từ danh sách phân công trong `teaching_sections`. Ảnh PNG
 được lưu ở bucket riêng tư `incident-images` theo tài khoản, tối đa 5 MB.
-Luồng tiếp nhận của kỹ thuật viên và đề xuất bảo trì vẫn mô phỏng trong app.
+Ứng dụng gửi ảnh mới dưới dạng JPEG. RPC `incident_evidence_path` trả về
+đường dẫn JPEG hoặc PNG tương ứng với ảnh đã lưu của báo cáo.
+App dùng RPC `technician_incident_jobs` và `advance_technician_incident`
+cho luồng chuyển trực tiếp báo cáo mới đến kỹ thuật viên. Người gửi nhận
+thông báo trong app khi kỹ thuật viên nhận việc và khi công việc hoàn tất.
+Đề xuất bảo trì vẫn mô phỏng.
+
+Số điện thoại được lưu trong `profiles.phone`. Tài khoản đang hoạt động
+có thể sửa số của mình.
+
+UTHBookingApp dọn tối đa 50 ảnh minh chứng mỗi lượt vào 03:15 giờ Việt Nam.
+Ảnh phải quá 24 giờ và chưa gắn báo cáo mới đủ điều kiện xóa.
+Để bật trên project khác, triển khai Edge Function `clean-expired-incident-photos` với
+xác thực JWT, sau đó đặt URL worker và JWT anon dạng cũ của cùng project
+vào Vault bằng hai tên ghi trong
+[`enable_incident_photo_cleanup.sql`](operations/enable_incident_photo_cleanup.sql)
+và chạy script. Script tạo thêm token riêng để worker xác thực yêu cầu.
 
 Migration `expose_approved_technician_usage_schedule` cấp cho kỹ thuật viên
 đang hoạt động quyền xem tài sản, địa điểm, ca và trạng thái của các lượt
@@ -38,6 +55,27 @@ Migration `create_booking_in_app_notifications` ghi thông báo khi tạo
 trên thông báo của mình. App làm mới hộp thông báo khi mở và mỗi 30 giây.
 Migration `allow_users_to_delete_own_in_app_notifications` cho phép xóa
 theo nhóm ID trong hộp thông báo của chính tài khoản.
+
+## Dựng môi trường mới
+
+1. Với Supabase CLI và Docker đang chạy, dùng `supabase start` rồi
+   `supabase db reset --local` trên môi trường phát triển trống. Chuỗi trong
+   `migrations/` tạo schema app trên Auth và Storage có sẵn của Supabase.
+   `seed.sql` nạp danh mục phòng và thiết bị cho môi trường cục bộ.
+2. Tạo tài khoản thử qua Auth với email `@ut.edu.vn` và vai trò phù hợp.
+   Vai trò nằm trong metadata quản trị `app_role`. Gán lớp học phần cho tài
+   khoản giảng viên nếu cần thử đặt phòng hoặc báo cáo cần hỗ trợ ngay.
+3. Chạy `supabase functions serve sign-in-by-code` ở môi trường cục bộ hoặc
+   triển khai hàm trong project mới bằng `supabase functions deploy sign-in-by-code`.
+   Hàm đọc khóa từ biến môi trường của Supabase. Flutter chỉ dùng khóa
+   publishable hoặc anon khi cấu hình URL project mới.
+
+Repo lưu các phiên bản migration đã ghi nhận trên UTHBookingApp và bổ sung
+schema nền cùng các thay đổi từng chạy qua SQL Editor. Trước khi dùng
+`supabase db push` với UTHBookingApp hiện tại, đối chiếu và đồng bộ lịch sử
+migration với schema đã tồn tại. Chạy lại schema nền trên project đang
+có dữ liệu sẽ gây xung đột. Dữ liệu người dùng, lịch đặt, báo cáo và tệp
+Storage được phục hồi qua bản sao lưu riêng khi cần.
 
 ## Bản nháp schema ban đầu
 

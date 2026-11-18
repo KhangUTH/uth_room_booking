@@ -1,9 +1,12 @@
+import 'dart:async';
 import 'dart:math';
 import 'dart:typed_data';
-import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart' show listEquals;
+import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../shared/images/encode_jpeg_photo.dart';
 import '../models/incident_report.dart';
 
 typedef StoredIncidentReport = ({
@@ -12,17 +15,27 @@ typedef StoredIncidentReport = ({
   IncidentStatus status,
   DateTime? updatedAt,
   bool hasPhoto,
+  bool canCancel,
 });
 
 class IncidentReportStore {
-  IncidentReportStore(this._client, this._userId);
+  IncidentReportStore(this._client, this._userId, {http.Client? uploadClient})
+    : _postPhoto = uploadClient?.post ?? http.post;
 
   final SupabaseClient _client;
   final String _userId;
+  final Future<http.Response> Function(
+    Uri, {
+    Map<String, String>? headers,
+    Object? body,
+  })
+  _postPhoto;
+  static const _imageBucket = 'incident-images';
   static const _timeout = Duration(seconds: 15);
+  static const _uploadTimeout = Duration(seconds: 45);
   static const _fields =
-      'id,report_number,title,description,status,occurred_at,created_at,'
-      'course_section,needs_support,has_photo,status_updated_at,'
+      'id,report_number,title,description,status,created_at,'
+      'course_section,needs_support,has_photo,status_updated_at,assigned_to,'
       'rooms(name),equipment(name)';
 
   String newSubmissionId() {
@@ -33,8 +46,8 @@ class IncidentReportStore {
     ).join();
   }
 
-  StorageFileApi get _images => _client.storage.from('incident-images');
-  String _imagePath(String id) => '$_userId/${id.replaceAll('-', '')}.png';
+  StorageFileApi get _images => _client.storage.from(_imageBucket);
+  String _imagePath(String id) => '$_userId/${id.replaceAll('-', '')}.jpg';
 
   Future<List<StoredIncidentReport>> history() async {
     final rows = await _client
@@ -47,10 +60,26 @@ class IncidentReportStore {
     return rows.map(_decode).toList();
   }
 
+  Future<StoredIncidentReport?> reportForNotice(
+    String title, {
+    required String createdBefore,
+  }) async {
+    final rows = await _client
+        .from('incident_reports')
+        .select(_fields)
+        .eq('reporter_id', _userId)
+        .eq('title', title)
+        .lte('created_at', createdBefore)
+        .limit(2)
+        .timeout(_timeout);
+    return rows.length == 1 ? _decode(rows.single) : null;
+  }
+
   Future<StoredIncidentReport> submit(
     String submissionId,
-    IncidentReport report,
-  ) async {
+    IncidentReport report, {
+    void Function(bool)? onPhotoUploadChanged,
+  }) async {
     if (_client.auth.currentUser?.id != _userId) {
       throw StateError('Phiên đăng nhập đã thay đổi.');
     }
@@ -75,17 +104,12 @@ class IncidentReportStore {
             .single()
             .timeout(_timeout);
     if (report.photos.isNotEmpty) {
-      final png = await _encodePhoto(report.photos.single);
-      await _images
-          .uploadBinary(
-            _imagePath(submissionId),
-            png,
-            fileOptions: const FileOptions(
-              contentType: 'image/png',
-              upsert: true,
-            ),
-          )
-          .timeout(_timeout);
+      onPhotoUploadChanged?.call(true);
+      try {
+        await _uploadPhoto(submissionId, report.photos.single);
+      } finally {
+        onPhotoUploadChanged?.call(false);
+      }
     }
     final row = await _client
         .from('incident_reports')
@@ -96,9 +120,8 @@ class IncidentReportStore {
           'description': report.description,
           'course_section': report.course.isEmpty ? null : report.course,
           'needs_support': report.needsSupport,
-          'occurred_at': report.occurredAt.toUtc().toIso8601String(),
           'has_photo': report.photos.isNotEmpty,
-        })
+        }, defaultToNull: false)
         .select(_fields)
         .single()
         .timeout(_timeout);
@@ -112,36 +135,83 @@ class IncidentReportStore {
         .eq('id', id)
         .eq('reporter_id', _userId)
         .eq('status', 'open')
+        .isFilter('assigned_to', null)
         .select(_fields)
         .single()
         .timeout(_timeout);
     return _decode(row);
   }
 
-  Future<Uint8List> loadPhoto(String id) =>
-      _images.download(_imagePath(id)).timeout(_timeout);
+  Future<Uint8List?> loadPhoto(String id) => loadEvidence(_client, id);
 
-  Future<Uint8List> _encodePhoto(Uint8List original) async {
-    final codec = await ui.instantiateImageCodec(
-      original,
-      targetWidth: 1200,
-      allowUpscaling: false,
-    );
+  static Future<Uint8List?> loadEvidence(
+    SupabaseClient client,
+    String id,
+  ) async {
+    final path = await client
+        .rpc<String?>('incident_evidence_path', params: {'report_id': id})
+        .timeout(_timeout);
+    if (path == null) return null;
+    return client.storage.from(_imageBucket).download(path).timeout(_timeout);
+  }
+
+  Future<void> _uploadPhoto(String id, Uint8List original) async {
+    final path = _imagePath(id);
+    final jpeg = await encodeJpegPhoto(original, maxEdge: incidentPhotoMaxEdge);
+    var session = _client.auth.currentSession;
+    if (session?.isExpired == true) {
+      session = (await _client.auth.refreshSession().timeout(_timeout)).session;
+    }
+    if (session == null || session.user.id != _userId) {
+      throw const FormatException('Phiên đăng nhập đã hết hạn.');
+    }
+
+    final storage = _client.storage;
+    final uri = Uri.parse('${storage.url}/object/$_imageBucket/$path');
+    final http.Response response;
     try {
-      final frame = await codec.getNextFrame();
-      try {
-        final data = await frame.image.toByteData(
-          format: ui.ImageByteFormat.png,
-        );
-        if (data == null || data.lengthInBytes > 5 * 1024 * 1024) {
-          throw const FormatException('Ảnh vượt quá giới hạn 5 MB.');
-        }
-        return data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
-      } finally {
-        frame.image.dispose();
+      response = await _postPhoto(
+        uri,
+        headers: {
+          ...storage.headers,
+          'apikey': _client.auth.headers['apikey']!,
+          'Authorization': 'Bearer ${session.accessToken}',
+          'Content-Type': 'image/jpeg',
+          'x-upsert': 'true',
+        },
+        body: jpeg,
+      ).timeout(_uploadTimeout);
+    } on Exception catch (error) {
+      if (error is! http.ClientException && error is! TimeoutException) {
+        rethrow;
       }
-    } finally {
-      codec.dispose();
+      // The server may have written the bytes before the connection dropped.
+      if (await _matchesUploadedPhoto(path, jpeg)) {
+        return;
+      }
+      if (error is TimeoutException) {
+        throw FormatException(
+          'Sau ${_uploadTimeout.inSeconds} giây vẫn chưa xác nhận được ảnh '
+          'minh chứng. Vui lòng gửi lại.',
+        );
+      }
+      throw const FormatException(
+        'Kết nối bị gián đoạn khi tải ảnh minh chứng. Vui lòng gửi lại.',
+      );
+    }
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw FormatException(
+        'Supabase từ chối ảnh minh chứng (HTTP ${response.statusCode}).',
+      );
+    }
+  }
+
+  Future<bool> _matchesUploadedPhoto(String path, Uint8List expected) async {
+    try {
+      final uploaded = await _images.download(path).timeout(_timeout);
+      return listEquals(uploaded, expected);
+    } on Exception {
+      return false;
     }
   }
 
@@ -158,7 +228,6 @@ class IncidentReportStore {
         asset: (room ?? equipment)?['name'] as String? ?? 'Tài sản',
         course: row['course_section'] as String? ?? '',
         needsSupport: row['needs_support'] == true,
-        occurredAt: DateTime.parse(row['occurred_at'] as String).toLocal(),
         submittedAt: DateTime.parse(row['created_at'] as String).toLocal(),
         photos: const <Uint8List>[],
       ),
@@ -172,6 +241,7 @@ class IncidentReportStore {
       updatedAt: DateTime.tryParse(row['status_updated_at'] as String? ?? '')
           ?.toLocal(),
       hasPhoto: row['has_photo'] == true,
+      canCancel: row['status'] == 'open' && row['assigned_to'] == null,
     );
   }
 }

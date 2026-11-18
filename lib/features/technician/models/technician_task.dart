@@ -1,5 +1,9 @@
 import 'dart:typed_data';
 
+class TechnicianTaskUnavailable implements Exception {
+  const TechnicianTaskUnavailable();
+}
+
 enum TaskStatus {
   pending('Chờ nhận'),
   inProgress('Đang xử lý'),
@@ -18,6 +22,9 @@ class TechnicianTask {
   final bool isUrgent;
   final bool isMaintenance;
   final List<Uint8List> evidence;
+  final Future<List<Uint8List>> Function()? loadEvidence;
+  final Future<TaskStatus> Function(TaskStatus)? onAdvance;
+  bool _advancing = false;
   TaskStatus _status;
   DateTime? _statusUpdatedAt;
 
@@ -33,19 +40,28 @@ class TechnicianTask {
     this.isUrgent = false,
     this.isMaintenance = false,
     this.evidence = const [],
+    this.loadEvidence,
+    this.onAdvance,
     this._status = TaskStatus.pending,
   });
 
-  bool advance() {
+  Future<bool> advance() async {
+    if (_advancing) return false;
     final next = switch (_status) {
       TaskStatus.pending => TaskStatus.inProgress,
       TaskStatus.inProgress => TaskStatus.completed,
       TaskStatus.completed => null,
     };
     if (next == null) return false;
-    _status = next;
-    _statusUpdatedAt = DateTime.now();
-    return true;
+    _advancing = true;
+    try {
+      final persist = onAdvance;
+      _status = persist == null ? next : await persist(_status);
+      _statusUpdatedAt = DateTime.now();
+      return true;
+    } finally {
+      _advancing = false;
+    }
   }
 }
 

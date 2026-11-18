@@ -18,12 +18,14 @@ class IncidentReportDetailsSheet extends StatelessWidget {
     super.key,
     required this.report,
     required this.status,
+    required this.canCancel,
     this.updatedAt,
     this.evidence,
   });
 
   final IncidentReport report;
   final IncidentStatus status;
+  final bool canCancel;
   final DateTime? updatedAt;
   final Future<Uint8List?>? evidence;
 
@@ -71,10 +73,10 @@ class IncidentReportDetailsSheet extends StatelessWidget {
                 const SizedBox(height: 10),
                 _ReportInfo(
                   icon: Icons.schedule,
-                  label: 'Thời gian xảy ra',
+                  label: 'Thời gian gửi báo cáo',
                   value: formatIncidentDateTime(
                     sheetContext,
-                    report.occurredAt,
+                    report.submittedAt,
                   ),
                 ),
                 if (report.course.isNotEmpty) ...[
@@ -141,7 +143,7 @@ class IncidentReportDetailsSheet extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
             child: Row(
               children: [
-                if (status == IncidentStatus.pending) ...[
+                if (canCancel) ...[
                   Expanded(
                     child: OutlinedButton(
                       onPressed: () => _confirmReportCancellation(sheetContext),
@@ -187,7 +189,10 @@ class IncidentReportDetailsSheet extends StatelessWidget {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Xác nhận hủy'),
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFFAD3037),
+            ),
+            child: const Text('Xác nhận'),
           ),
         ],
       ),

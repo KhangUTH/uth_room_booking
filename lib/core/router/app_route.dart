@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import '../../features/auth/models/user_role.dart';
 import '../../features/booking/data/booking_store.dart';
+import '../../features/incident_report/data/incident_report_store.dart';
 import '../../features/notifications/data/notice_store.dart';
 import '../../features/notifications/models/app_notice.dart';
 import '../../features/technician/models/technician_task.dart';
@@ -30,6 +31,7 @@ typedef NotificationsRouteArgs = ({
   List<AppNotice> notices,
   NoticeStore? store,
   BookingStore? bookingStore,
+  IncidentReportStore? incidentStore,
 });
 
 typedef TechnicianTaskRouteArgs = ({

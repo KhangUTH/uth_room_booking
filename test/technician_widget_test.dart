@@ -2,12 +2,39 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:uth_room_booking/core/router/app_router.dart';
 import 'package:uth_room_booking/features/auth/models/user_role.dart';
+import 'package:uth_room_booking/features/technician/presentation/technician_work_view.dart';
 import 'package:uth_room_booking/features/technician/widgets/technician_task_card.dart';
 import 'package:uth_room_booking/shared/layouts/main_shell.dart';
 
 import 'support/widget_test_helpers.dart';
 
 void main() {
+  testWidgets('phân biệt danh sách đang tải và danh sách trống', (
+    tester,
+  ) async {
+    Future<void> showJobs({required bool loading}) => tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: TechnicianWorkView(
+            jobs: const [],
+            filter: null,
+            loading: loading,
+            onFilter: (_) {},
+            onChanged: () {},
+            onSchedule: () {},
+          ),
+        ),
+      ),
+    );
+    final emptyMessage = find.text('Không có công việc trong mục này');
+    await showJobs(loading: true);
+    expect(find.byType(LinearProgressIndicator), findsOneWidget);
+    expect(emptyMessage, findsNothing);
+    await showJobs(loading: false);
+    expect(find.byType(LinearProgressIndicator), findsNothing);
+    expect(emptyMessage, findsOneWidget);
+  });
+
   testWidgets('kỹ thuật viên dùng thanh dưới riêng và tiếp nhận sự cố', (
     tester,
   ) async {
@@ -137,7 +164,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Máy chiếu - H203'), findsOneWidget);
 
-    await tester.tap(find.text('Lịch'));
+    await tester.tap(find.widgetWithText(TextButton, 'Lịch sử dụng'));
     await tester.pumpAndSettle();
     expect(find.text('Lịch sử dụng'), findsOneWidget);
     expect(find.text('Phòng B2-304'), findsOneWidget);

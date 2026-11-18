@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 
 import '../../../shared/widgets/evidence_photos.dart';
@@ -26,9 +28,35 @@ class TaskDetailsPage extends StatefulWidget {
 class _TaskDetailsPageState extends State<TaskDetailsPage> {
   TechnicianTask get task => widget.task;
 
-  void _advance() {
+  late final _evidence = task.loadEvidence?.call();
+
+  Future<void> _advance() async {
     final accepting = task.status == TaskStatus.pending;
-    if (!task.advance()) return;
+    try {
+      if (!await task.advance() || !mounted) return;
+    } on TechnicianTaskUnavailable {
+      if (!mounted) return;
+      widget.onChanged();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Công việc đã thay đổi. Danh sách đang được cập nhật.'),
+        ),
+      );
+      if (ModalRoute.of(context)?.isCurrent == true) {
+        Navigator.of(context).pop();
+      }
+      return;
+    } catch (_) {
+      if (mounted) {
+        widget.onChanged();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Không thể cập nhật công việc. Vui lòng thử lại.'),
+          ),
+        );
+      }
+      return;
+    }
     widget.onChanged();
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
@@ -41,6 +69,30 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
       setState(() {});
     }
   }
+
+  Widget _evidencePhotos() {
+    final request = _evidence;
+    if (request == null) return _photos(task.evidence);
+    return FutureBuilder(
+      future: request,
+      builder: (_, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError) {
+          return const Text('Không tải được ảnh minh chứng.');
+        }
+        return _photos(snapshot.requireData);
+      },
+    );
+  }
+
+  Widget _photos(List<Uint8List> photos) => photos.isEmpty
+      ? const Text(
+          'Không có ảnh minh chứng được đính kèm.',
+          style: TextStyle(color: AppColors.textMuted),
+        )
+      : EvidencePhotos(photos: photos);
 
   @override
   Widget build(BuildContext context) {
@@ -80,12 +132,7 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
             _TaskDetailsSection(
               icon: Icons.photo_library_outlined,
               title: 'Hình ảnh minh chứng',
-              child: task.evidence.isEmpty
-                  ? const Text(
-                      'Không có ảnh minh chứng được đính kèm.',
-                      style: TextStyle(color: AppColors.textMuted),
-                    )
-                  : EvidencePhotos(photos: task.evidence),
+              child: _evidencePhotos(),
             ),
           ],
         ),

@@ -80,7 +80,7 @@ class IncidentReportHistory extends StatelessWidget {
               children: [
                 Text(report.asset),
                 Text(
-                  'Lưu lúc ${formatIncidentDateTime(context, report.submittedAt)}',
+                  'Đã gửi lúc ${formatIncidentDateTime(context, report.submittedAt)}',
                 ),
                 const SizedBox(height: 4),
                 IncidentReportLabels(report: report, status: statusFor(report)),

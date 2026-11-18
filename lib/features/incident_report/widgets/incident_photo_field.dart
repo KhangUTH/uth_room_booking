@@ -12,11 +12,13 @@ class IncidentPhotoField extends StatelessWidget {
     required this.photo,
     required this.onPick,
     required this.onRemove,
+    this.uploading = false,
   });
 
   final Uint8List? photo;
   final VoidCallback? onPick;
   final VoidCallback? onRemove;
+  final bool uploading;
 
   @override
   Widget build(BuildContext context) => Column(
@@ -51,10 +53,35 @@ class IncidentPhotoField extends StatelessWidget {
           ),
           if (photo case final selected?)
             Flexible(
-              child: EvidencePhotos(
-                photos: [selected],
-                thumbnailSize: const Size(112, 80),
-                onRemove: onRemove == null ? null : (_) => onRemove!(),
+              child: Stack(
+                children: [
+                  EvidencePhotos(
+                    photos: [selected],
+                    thumbnailSize: const Size(112, 80),
+                    onRemove: uploading || onRemove == null
+                        ? null
+                        : (_) => onRemove!(),
+                  ),
+                  if (uploading)
+                    Positioned.fill(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: Colors.black45,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Center(
+                          child: SizedBox.square(
+                            dimension: 24,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                              semanticsLabel: 'Đang tải ảnh minh chứng',
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
         ],

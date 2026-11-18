@@ -22,7 +22,7 @@ class BookingFeedback extends StatelessWidget {
         margin: const EdgeInsets.fromLTRB(14, 4, 14, 8),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: failed ? colors.errorContainer : const Color(0xFFEAF6F5),
+          color: failed ? colors.errorContainer : AppColors.feedbackBackground,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(

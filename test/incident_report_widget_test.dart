@@ -1,10 +1,16 @@
+import 'dart:convert';
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uth_room_booking/core/router/app_route.dart';
 import 'package:uth_room_booking/core/router/app_router.dart';
 import 'package:uth_room_booking/features/auth/models/user_role.dart';
+import 'package:uth_room_booking/features/booking/models/booking.dart';
 import 'package:uth_room_booking/features/incident_report/data/incident_report_store.dart';
 import 'package:uth_room_booking/features/incident_report/models/incident_report.dart';
 import 'package:uth_room_booking/features/technician/data/demo_incident_queue.dart';
@@ -25,10 +31,11 @@ class _RetryReportStore extends IncidentReportStore {
   @override
   Future<StoredIncidentReport> submit(
     String submissionId,
-    IncidentReport report,
-  ) async {
+    IncidentReport report, {
+    void Function(bool)? onPhotoUploadChanged,
+  }) async {
     attempts.add(submissionId);
-    if (attempts.length == 1) throw StateError('Offline');
+    if (attempts.length < 3) throw StateError('Offline');
     return stored = (
       id: submissionId,
       report: (
@@ -39,18 +46,170 @@ class _RetryReportStore extends IncidentReportStore {
         asset: report.asset,
         course: report.course,
         needsSupport: report.needsSupport,
-        occurredAt: report.occurredAt,
         submittedAt: report.submittedAt,
         photos: report.photos,
       ),
       status: IncidentStatus.pending,
       updatedAt: null,
       hasPhoto: false,
+      canCancel: false,
     );
   }
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  for (final role in [UserRole.student, UserRole.teacher]) {
+    testWidgets('lọc phòng máy trong báo cáo của ${role.name}', (tester) async {
+      await useMobileScreen(tester);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: MainShell(
+            name: 'Người báo cáo',
+            id: 'Test01',
+            role: role,
+            loadCatalog: () async => (
+              rooms: [
+                for (final name in [
+                  'Phòng H507',
+                  'Phòng thư viện',
+                  'Phòng I101',
+                ])
+                  (
+                    name: name,
+                    detail: 'Tầng 1',
+                    capacity: 20,
+                    slots: List.filled(
+                      bookingStartTimes.length,
+                      name == 'Phòng I101'
+                          ? SlotStatus.maintenance
+                          : SlotStatus.free,
+                    ),
+                  ),
+              ],
+              equipment: <BookingAsset>[],
+              namesById: <String, String>{},
+              roomsUnavailableToTeachers: {'Phòng thư viện'},
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Báo cáo'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.arrow_drop_down).first);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Phòng H507'), findsOneWidget);
+      expect(find.text('Phòng I101'), findsNothing);
+      expect(
+        find.text('Phòng thư viện'),
+        role == UserRole.student ? findsOneWidget : findsNothing,
+      );
+      await unmountApp(tester);
+    });
+  }
+
+  for (final lostResponse in [false, true]) {
+    test('gửi JPEG trực tiếp, mất phản hồi: $lostResponse', () async {
+      late Uint8List uploaded;
+      final uploadStates = <bool>[];
+      final uploadClient = MockClient((request) async {
+        expect(request.method, 'POST');
+        expect(
+          request.url.path,
+          startsWith('/storage/v1/object/incident-images/'),
+        );
+        expect(request.url.path, endsWith('.jpg'));
+        expect(request.headers['content-type'], 'image/jpeg');
+        expect(request.headers['authorization'], 'Bearer test-access-token');
+        expect(request.headers['apikey'], 'test-key');
+        expect(request.headers['x-upsert'], 'true');
+        expect(uploadStates, [true]);
+        uploaded = request.bodyBytes;
+        expect(uploaded.take(2), [0xff, 0xd8]);
+        final codec = await ui.instantiateImageCodec(uploaded);
+        final frame = await codec.getNextFrame();
+        expect(frame.image.width, 288);
+        expect(frame.image.height, 720);
+        frame.image.dispose();
+        codec.dispose();
+        expect(uploaded.lengthInBytes, lessThanOrEqualTo(512 * 1024));
+        if (lostResponse) throw http.ClientException('Connection closed');
+        return http.Response('', 200);
+      });
+      addTearDown(uploadClient.close);
+      final client = SupabaseClient(
+        'https://example.com',
+        'test-key',
+        authOptions: const AuthClientOptions(autoRefreshToken: false),
+        httpClient: MockClient((request) async {
+          final path = request.url.path;
+          if (path.contains('/storage/')) {
+            expect(uploadStates, [true]);
+            expect(request.method, 'GET');
+            expect(lostResponse, isTrue);
+            return http.Response.bytes(uploaded, 200);
+          }
+          if (path.endsWith('/rooms')) {
+            return http.Response('{"id":"room-id"}', 200, request: request);
+          }
+          if (request.method == 'GET') {
+            return http.Response('[]', 200, request: request);
+          }
+          expect(jsonDecode(request.body)['has_photo'], isTrue);
+          expect(uploadStates, [true, false]);
+          return http.Response(
+            '{"id":"report-id","report_number":42,"title":"Máy hỏng",'
+            '"created_at":"2026-11-17T11:00:00Z","status":"open",'
+            '"has_photo":true,"rooms":{"name":"Phòng A101"}}',
+            201,
+            request: request,
+            headers: {'content-type': 'application/json; charset=utf-8'},
+          );
+        }),
+      );
+      addTearDown(client.dispose);
+      await client.auth.recoverSession(
+        jsonEncode({
+          'access_token': 'test-access-token',
+          'refresh_token': 'test-refresh-token',
+          'token_type': 'bearer',
+          'user': {
+            'id': 'test-user',
+            'aud': 'authenticated',
+            'created_at': '',
+            'app_metadata': {},
+          },
+        }),
+      );
+      final recorder = ui.PictureRecorder();
+      Canvas(recorder).drawColor(Colors.teal, BlendMode.src);
+      final picture = recorder.endRecording();
+      final image = await picture.toImage(480, 1200);
+      final png = (await image.toByteData(format: ui.ImageByteFormat.png))!;
+      image.dispose();
+      picture.dispose();
+      final store = IncidentReportStore(
+        client,
+        'test-user',
+        uploadClient: uploadClient,
+      );
+      final result = await store.submit(store.newSubmissionId(), (
+        id: 0,
+        title: 'Máy hỏng',
+        description: 'Màn hình đen',
+        type: 'Phòng máy',
+        asset: 'Phòng A101',
+        course: '',
+        needsSupport: false,
+        submittedAt: DateTime.now(),
+        photos: [png.buffer.asUint8List(png.offsetInBytes, png.lengthInBytes)],
+      ), onPhotoUploadChanged: uploadStates.add);
+      expect(result.hasPhoto, isTrue);
+    });
+  }
+
   testWidgets('gửi báo cáo lại sau khi mất mạng vẫn giữ nội dung', (
     tester,
   ) async {
@@ -96,8 +255,16 @@ void main() {
     await tester.pumpAndSettle();
     expect(store.attempts.length, 2);
     expect(store.attempts.toSet(), hasLength(1));
+    await tester.enterText(fields.last, 'Màn hình đen sau khi khởi động');
+    await tester.ensureVisible(submit);
+    await tester.tap(submit);
+    await tester.pumpAndSettle();
+    expect(store.attempts.length, 3);
+    expect(store.attempts.last, isNot(store.attempts.first));
     expect(find.text('Mã báo cáo #SC-0042'), findsOneWidget);
-    expect(store.stored?.report.description, 'Màn hình đen');
+    expect(find.text('Hủy báo cáo'), findsNothing);
+    expect(find.text('Thời gian gửi báo cáo'), findsOneWidget);
+    expect(store.stored?.report.description, 'Màn hình đen sau khi khởi động');
     await unmountApp(tester);
   });
 
@@ -173,13 +340,13 @@ void main() {
     expect(find.text('Phòng máy · Phòng A101'), findsOneWidget);
     await tester.tap(find.text('Hủy báo cáo'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Xác nhận hủy'));
+    await tester.tap(find.text('Xác nhận'));
     await tester.pumpAndSettle();
     expect(find.text('Đã hủy'), findsOneWidget);
     expect(queue.tasks, isEmpty);
   });
 
-  testWidgets('giảng viên phải nhập lớp khi cần hỗ trợ trong giờ dạy', (
+  testWidgets('giảng viên chọn lớp đã phân công khi cần hỗ trợ trong giờ dạy', (
     tester,
   ) async {
     await useMobileScreen(tester);
@@ -202,25 +369,35 @@ void main() {
     expect(find.text('Mức độ'), findsNothing);
 
     final support = find.text('Cần hỗ trợ ngay trong giờ dạy');
+    await tester.tap(find.text('Thiết bị'));
+    await tester.pumpAndSettle();
+    expect(find.text('Lớp học phần đang dạy'), findsNothing);
+    expect(support, findsNothing);
+    await tester.tap(find.text('Phòng máy'));
+    await tester.pumpAndSettle();
+    expect(find.text('Lớp học phần đang dạy'), findsOneWidget);
     await tester.ensureVisible(support);
     await tester.tap(support);
     await tester.pumpAndSettle();
     final submit = find.text('Gửi báo cáo');
-    await tester.ensureVisible(submit);
-    await tester.tap(submit);
-    await tester.pumpAndSettle();
-    expect(find.text('Vui lòng nhập lớp học phần đang dạy'), findsOneWidget);
+    expect(find.text('Bắt buộc khi cần hỗ trợ ngay'), findsNothing);
 
-    final roomMenu = find.byIcon(Icons.arrow_drop_down);
+    final roomMenu = find.byKey(const ValueKey('incident-asset-menu'));
     await tester.ensureVisible(roomMenu);
     await tester.tap(roomMenu);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Phòng A101').last);
     await tester.pumpAndSettle();
+    final courseMenu = find.byKey(const ValueKey('incident-course-menu'));
+    await tester.ensureVisible(courseMenu);
+    await tester.tap(courseMenu);
+    await tester.pumpAndSettle();
+    const course = 'CN2302E · Lập trình Web';
+    await tester.tap(find.text(course).last);
+    await tester.pumpAndSettle();
     final fields = find.byType(TextFormField);
-    await tester.enterText(fields.at(0), 'Lập trình di động - Nhóm 02');
-    await tester.enterText(fields.at(1), 'Máy chiếu không lên hình');
-    await tester.enterText(fields.at(2), 'Lớp đang học tại phòng A101');
+    await tester.enterText(fields.at(0), 'Máy chiếu không lên hình');
+    await tester.enterText(fields.at(1), 'Lớp đang học tại phòng A101');
     await tester.ensureVisible(submit);
     await tester.tap(submit);
     await tester.pumpAndSettle();
@@ -230,10 +407,7 @@ void main() {
       findsOneWidget,
     );
     expect(
-      find.descendant(
-        of: sheet,
-        matching: find.text('Lập trình di động - Nhóm 02'),
-      ),
+      find.descendant(of: sheet, matching: find.text(course)),
       findsOneWidget,
     );
     await tester.tap(find.text('Đóng'));

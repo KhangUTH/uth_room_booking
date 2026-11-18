@@ -2,6 +2,8 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
+const incidentPhotoMaxEdge = 720;
+
 enum IncidentStatus {
   pending('Chờ tiếp nhận', Icons.schedule),
   inProgress('Đang xử lý', Icons.build_outlined),
@@ -21,7 +23,6 @@ typedef IncidentReport = ({
   String asset,
   String course,
   bool needsSupport,
-  DateTime occurredAt,
   DateTime submittedAt,
   List<Uint8List> photos,
 });

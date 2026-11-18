@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../features/auth/data/auth_store.dart';
 import '../../features/auth/data/remembered_session_storage.dart';
+import '../../features/auth/models/user_role.dart';
 import '../../features/auth/presentation/login_page.dart';
 import '../../features/booking/data/asset_catalog.dart';
 import '../../features/booking/data/booking_store.dart';
@@ -11,9 +12,11 @@ import '../../features/incident_report/data/incident_report_store.dart';
 import '../../features/notifications/data/notice_store.dart';
 import '../../features/notifications/presentation/notifications_view.dart';
 import '../../features/profile/data/profile_avatar_storage.dart';
+import '../../features/profile/data/profile_contact_store.dart';
 import '../../features/room/presentation/room_list_page.dart';
 import '../../features/splash/presentation/splash_screen.dart';
 import '../../features/technician/data/demo_incident_queue.dart';
+import '../../features/technician/data/technician_incident_store.dart';
 import '../../features/technician/presentation/task_details_page.dart';
 import '../../features/technician/presentation/task_evidence_page.dart';
 import '../../shared/layouts/main_shell.dart';
@@ -52,6 +55,10 @@ abstract final class AppRouter {
         loadCatalog: supabase == null ? null : () => loadAssetCatalog(supabase),
         bookingStore: supabase == null ? null : BookingStore(supabase),
         noticeStore: supabase == null ? null : NoticeStore(supabase),
+        technicianIncidentStore:
+            supabase != null && args.role == UserRole.technician
+            ? TechnicianIncidentStore(supabase)
+            : null,
         faculty: args.faculty,
         incidentQueue: incidentQueue,
         incidentStore: switch ((supabase, supabase?.auth.currentUser?.id)) {
@@ -62,6 +69,10 @@ abstract final class AppRouter {
             ? null
             : () => signOutFromApp(supabase, sessionStorage: sessionStorage),
         accountEmail: supabase?.auth.currentUser?.email,
+        contactStore: switch ((supabase, supabase?.auth.currentUser?.id)) {
+          (final client?, final userId?) => ProfileContactStore(client, userId),
+          _ => null,
+        },
         avatarStorage: switch ((supabase, supabase?.auth.currentUser?.id)) {
           (final client?, final userId?) => ProfileAvatarStorage(
             client,
@@ -79,6 +90,7 @@ abstract final class AppRouter {
           notices: args.notices,
           store: args.store,
           bookingStore: args.bookingStore,
+          incidentStore: args.incidentStore,
         ),
       (AppRoute.technicianTask, TechnicianTaskRouteArgs args) =>
         TaskDetailsPage(task: args.task, onChanged: args.onChanged),

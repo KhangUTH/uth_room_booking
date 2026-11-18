@@ -24,6 +24,7 @@ class BookingController extends ChangeNotifier {
   final List<({String? id, Booking booking})> _bookings;
   int _historyRequest = 0;
   bool _historyLoaded = false;
+  bool get hasHistory => _historyLoaded;
   Set<BookingSlot> busy = {};
 
   ({int upcoming, int inUse, int used})? homeCounts() {

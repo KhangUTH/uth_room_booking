@@ -4,21 +4,15 @@ import 'package:uth_room_booking/theme/app_colors.dart';
 
 import '../../booking/data/booking_store.dart';
 import '../../booking/widgets/booking_history_card.dart';
+import '../../incident_report/data/incident_report_store.dart';
+import '../../incident_report/widgets/incident_report_details_sheet.dart';
 import '../data/notice_store.dart';
 import '../data/sample_notices.dart';
 import '../models/app_notice.dart';
 import '../widgets/notice_card.dart';
+import '../widgets/notice_search_filters.dart';
 
 const _muted = Color(0xFF596577);
-
-enum _NoticeFilter {
-  all('Tất cả'),
-  unread('Chưa đọc'),
-  saved('Đã lưu');
-
-  const _NoticeFilter(this.label);
-  final String label;
-}
 
 class NotificationsView extends StatefulWidget {
   const NotificationsView({
@@ -28,6 +22,7 @@ class NotificationsView extends StatefulWidget {
     this.notices = demoNotices,
     this.store,
     this.bookingStore,
+    this.incidentStore,
   });
 
   final List<AppNotice> notices;
@@ -36,18 +31,20 @@ class NotificationsView extends StatefulWidget {
   final Set<int> saved;
   final NoticeStore? store;
   final BookingStore? bookingStore;
+  final IncidentReportStore? incidentStore;
 
   @override
   State<NotificationsView> createState() => _NotificationsViewState();
 }
 
 class _NotificationsViewState extends State<NotificationsView> {
-  _NoticeFilter _filter = _NoticeFilter.all;
+  NoticeFilter _filter = NoticeFilter.all;
   String _query = '';
   final _pending = <int>{};
   final _selected = <int>{};
   bool _deleting = false;
   bool _deleteFailed = false;
+  int? _openingIncidentId;
 
   void _toggleSelection(int id) {
     if (_deleting || _pending.contains(id)) return;
@@ -119,34 +116,99 @@ class _NotificationsViewState extends State<NotificationsView> {
   }
 
   void _openNotice(AppNotice notice) {
+    if (_openingIncidentId != null) return;
+    FocusManager.instance.primaryFocus?.unfocus();
     final store = widget.store;
     if (store == null) {
       if (widget.read.add(notice.id)) setState(() {});
+    } else {
+      _runAction(notice.id, () => store.markRead(notice.id));
+    }
+    final incidentTitle = notice.incidentTitle;
+    final createdAt = store?.createdAt(notice.id);
+    final incidents = widget.incidentStore;
+    if (incidents != null && incidentTitle != null && createdAt != null) {
+      _openIncidentNotice(notice.id, incidents, incidentTitle, createdAt);
       return;
     }
-    _runAction(notice.id, () async {
-      await store.markRead(notice.id);
-      final id = store.bookingId(notice.id);
-      final bookings = widget.bookingStore;
-      if (!mounted || id == null || bookings == null) return;
-      final booking = await bookings.bookingById(id);
-      if (!mounted) return;
-      await showModalBottomSheet<void>(
-        context: context,
-        showDragHandle: true,
-        isScrollControlled: true,
-        useSafeArea: true,
-        builder: (context) => SafeArea(
-          top: false,
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
-            child: booking == null
-                ? const Text('Đăng ký này hiện không còn khả dụng.')
-                : BookingHistoryCard(booking: booking),
+    final bookingId = store?.bookingId(notice.id);
+    final bookingDetails = bookingId == null
+        ? null
+        : widget.bookingStore?.bookingById(bookingId);
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (context) => NoticeDetailsSheet(
+        notice: notice,
+        relatedDetails: bookingDetails == null
+            ? null
+            : FutureBuilder(
+                future: bookingDetails,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState != ConnectionState.done) {
+                    return const LinearProgressIndicator();
+                  }
+                  if (snapshot.hasError) {
+                    return const Text('Chưa tải được chi tiết đăng ký.');
+                  }
+                  final booking = snapshot.data;
+                  return booking == null
+                      ? const Text('Đăng ký này hiện không còn khả dụng.')
+                      : BookingHistoryCard(booking: booking);
+                },
+              ),
+      ),
+    );
+  }
+
+  Future<void> _openIncidentNotice(
+    int noticeId,
+    IncidentReportStore incidents,
+    String title,
+    String createdAt,
+  ) async {
+    setState(() => _openingIncidentId = noticeId);
+    StoredIncidentReport? entry;
+    try {
+      entry = await incidents.reportForNotice(title, createdBefore: createdAt);
+    } catch (_) {
+      // The inbox can still be used when the report cannot be loaded.
+    } finally {
+      if (mounted) setState(() => _openingIncidentId = null);
+    }
+    if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
+    final report = entry;
+    if (report == null) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Chưa mở được báo cáo. Bạn có thể xem trong Báo cáo của tôi.',
+            ),
           ),
-        ),
-      );
-    });
+        );
+      return;
+    }
+    final evidence = report.hasPhoto
+        ? incidents.loadPhoto(report.id).catchError((Object _) => null)
+        : null;
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.white,
+      builder: (context) => IncidentReportDetailsSheet(
+        report: report.report,
+        status: report.status,
+        canCancel: false,
+        updatedAt: report.updatedAt,
+        evidence: evidence,
+      ),
+    );
   }
 
   void _toggleSaved(int id, bool saved) {
@@ -179,9 +241,9 @@ class _NotificationsViewState extends State<NotificationsView> {
     final store = widget.store;
     final visibleNotices = (store?.notices ?? widget.notices).where((notice) {
       final matchesFilter = switch (_filter) {
-        _NoticeFilter.all => true,
-        _NoticeFilter.unread => !widget.read.contains(notice.id),
-        _NoticeFilter.saved => widget.saved.contains(notice.id),
+        NoticeFilter.all => true,
+        NoticeFilter.unread => !widget.read.contains(notice.id),
+        NoticeFilter.saved => widget.saved.contains(notice.id),
       };
       return matchesFilter &&
           '${notice.title} ${notice.message} ${notice.metadata}'
@@ -200,74 +262,17 @@ class _NotificationsViewState extends State<NotificationsView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24, 6, 24, 4),
-            child: TextField(
-              enabled: !_deleting,
-              onChanged: (value) => setState(() {
-                _query = value.trim().toLowerCase();
-                _clearSelection();
-              }),
-              textInputAction: TextInputAction.search,
-              decoration: InputDecoration(
-                hintText: 'Tìm kiếm thông báo...',
-                prefixIcon: const Icon(Icons.search, color: _muted),
-                isDense: true,
-                filled: true,
-                fillColor: const Color(0xFFF1F2F4),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(30),
-                  borderSide: BorderSide.none,
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(30),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-            ),
-          ),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Row(
-              children: [
-                for (final filter in _NoticeFilter.values)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 20),
-                    child: Semantics(
-                      selected: _filter == filter,
-                      child: TextButton(
-                        onPressed: _deleting
-                            ? null
-                            : () => setState(() {
-                                if (_filter != filter) _clearSelection();
-                                _filter = filter;
-                              }),
-                        style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 2),
-                          foregroundColor: _filter == filter
-                              ? AppColors.primary
-                              : _muted,
-                        ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(filter.label),
-                            const SizedBox(height: 5),
-                            Container(
-                              width: 23,
-                              height: 2,
-                              color: _filter == filter
-                                  ? AppColors.primary
-                                  : Colors.transparent,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
+          NoticeSearchFilters(
+            selected: _filter,
+            disabled: _deleting,
+            onQueryChanged: (value) => setState(() {
+              _query = value.trim().toLowerCase();
+              _clearSelection();
+            }),
+            onFilterChanged: (filter) => setState(() {
+              if (_filter != filter) _clearSelection();
+              _filter = filter;
+            }),
           ),
           if (_deleting) const LinearProgressIndicator(),
           if (_deleteFailed)
@@ -308,6 +313,7 @@ class _NotificationsViewState extends State<NotificationsView> {
                         final disabled =
                             _deleting || _pending.contains(notice.id);
                         return NoticeCard(
+                          opening: _openingIncidentId == notice.id,
                           notice: notice,
                           isRead: isRead,
                           saved: saved,

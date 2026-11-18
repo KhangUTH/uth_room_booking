@@ -15,6 +15,9 @@ class TechnicianWorkView extends StatelessWidget {
     required this.onFilter,
     required this.onChanged,
     required this.onSchedule,
+    this.loading = false,
+    this.onRefresh,
+    this.onRetry,
   });
 
   final List<TechnicianTask> jobs;
@@ -22,6 +25,9 @@ class TechnicianWorkView extends StatelessWidget {
   final ValueChanged<TaskFilter?> onFilter;
   final VoidCallback onChanged;
   final VoidCallback onSchedule;
+  final bool loading;
+  final RefreshCallback? onRefresh;
+  final VoidCallback? onRetry;
 
   Iterable<TechnicianTask> get urgentJobs =>
       jobs.where(TaskFilter.urgent.matches);
@@ -34,7 +40,8 @@ class TechnicianWorkView extends StatelessWidget {
       ...matchingJobs.where(TaskFilter.urgent.matches),
       ...matchingJobs.where((task) => !TaskFilter.urgent.matches(task)),
     ];
-    return ListView(
+    final list = ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(16),
       children: [
         Row(
@@ -55,14 +62,21 @@ class TechnicianWorkView extends StatelessWidget {
                 shape: const StadiumBorder(),
               ),
               icon: const Icon(Icons.calendar_month_outlined, size: 15),
-              label: const Text('Lịch'),
+              label: const Text('Lịch sử dụng'),
             ),
           ],
         ),
         const SizedBox(height: 10),
         _buildFilters(),
         const SizedBox(height: 10),
-        if (visible.isEmpty)
+        if (loading)
+          const LinearProgressIndicator()
+        else if (onRetry != null)
+          TextButton(
+            onPressed: onRetry,
+            child: const Text('Không tải được công việc. Thử lại'),
+          )
+        else if (visible.isEmpty)
           const Center(child: Text('Không có công việc trong mục này')),
         for (final task in visible)
           Padding(
@@ -75,6 +89,10 @@ class TechnicianWorkView extends StatelessWidget {
           ),
       ],
     );
+    final refresh = onRefresh;
+    return refresh == null
+        ? list
+        : RefreshIndicator(onRefresh: refresh, child: list);
   }
 
   Widget _buildFilters() => DecoratedBox(

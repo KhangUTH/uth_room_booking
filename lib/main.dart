@@ -76,13 +76,12 @@ class MyApp extends StatefulWidget {
   State<MyApp> createState() => _MyAppState();
 }
 
-class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+class _MyAppState extends State<MyApp> {
   final _incidentQueue = DemoIncidentQueue();
   final _navigation = _AppNavigationObserver();
   StreamSubscription<AuthState>? _authSubscription;
   late final AppLifecycleListener _lifecycle;
   bool _requestedPermissions = false;
-  bool _keyboardVisible = false;
 
   @override
   void initState() {
@@ -97,22 +96,12 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         // Temporary refresh failures keep the app open while the SDK retries.
       },
     );
-    WidgetsBinding.instance.addObserver(this);
     _lifecycle = AppLifecycleListener(onResume: _requestPermissions);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) {
         _requestPermissions();
       }
     });
-  }
-
-  @override
-  void didChangeMetrics() {
-    final keyboardVisible = View.of(context).viewInsets.bottom > 0;
-    if (_keyboardVisible && !keyboardVisible) {
-      FocusManager.instance.primaryFocus?.unfocus();
-    }
-    _keyboardVisible = keyboardVisible;
   }
 
   void _requestPermissions() {
@@ -124,7 +113,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   @override
   void dispose() {
     _authSubscription?.cancel();
-    WidgetsBinding.instance.removeObserver(this);
     _lifecycle.dispose();
     super.dispose();
   }

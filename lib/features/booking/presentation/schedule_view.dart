@@ -14,7 +14,7 @@ import '../widgets/booking_calendar.dart';
 import '../widgets/booking_category_tabs.dart';
 import '../widgets/booking_confirmation_sheet.dart';
 import '../widgets/booking_hint.dart';
-import '../widgets/booking_history_card.dart';
+import '../widgets/my_bookings_section.dart';
 
 enum BookingCategory { rooms, equipment, mine }
 
@@ -50,8 +50,14 @@ class _ScheduleViewState extends State<ScheduleView> {
   int _slotIndex = 0;
   bool _busy = false;
   bool _saving = false;
-  bool _loadFailed = false;
+  bool _historyFailed = false;
+  bool _slotsFailed = false;
+  DateTime? _slotsDay;
   int _request = 0;
+  bool get _loadFailed => _isMine ? _historyFailed : _slotsFailed;
+  bool get _hasVisibleData =>
+      _bookings.store == null ||
+      (_isMine ? _bookings.hasHistory : _slotsDay == _date);
   ({String message, bool failed})? _feedback;
   Timer? _feedbackTimer;
 
@@ -74,25 +80,36 @@ class _ScheduleViewState extends State<ScheduleView> {
     final day = _date;
     setState(() {
       _busy = true;
-      _loadFailed = false;
+      _historyFailed = false;
+      _slotsFailed = false;
     });
-    try {
-      final freshCatalog = reloadCatalog
-          ? await widget.refreshCatalog?.call()
-          : null;
-      if (!mounted || request != _request) return;
-      final catalog = freshCatalog ?? widget.catalog!;
-      final slots = await store.busySlots(day, catalog);
-      if (!mounted || request != _request) return;
-      await _bookings.refreshHistory();
-      if (mounted && request == _request) {
-        setState(() => _bookings.busy = slots);
+    Future<void> load(
+      Future<void> Function() operation,
+      VoidCallback onFailure,
+    ) async {
+      try {
+        await operation();
+        if (mounted && request == _request) setState(() {});
+      } catch (_) {
+        if (mounted && request == _request) setState(onFailure);
       }
-    } catch (_) {
-      if (mounted && request == _request) setState(() => _loadFailed = true);
-    } finally {
-      if (mounted && request == _request) setState(() => _busy = false);
     }
+
+    await Future.wait([
+      load(_bookings.refreshHistory, () => _historyFailed = true),
+      load(() async {
+        final freshCatalog = reloadCatalog
+            ? await widget.refreshCatalog?.call()
+            : null;
+        if (!mounted || request != _request) return;
+        final catalog = freshCatalog ?? widget.catalog!;
+        final slots = await store.busySlots(day, catalog);
+        if (!mounted || request != _request) return;
+        _bookings.busy = slots;
+        _slotsDay = day;
+      }, () => _slotsFailed = true),
+    ]);
+    if (mounted && request == _request) setState(() => _busy = false);
   }
 
   @override
@@ -106,7 +123,7 @@ class _ScheduleViewState extends State<ScheduleView> {
       _clearFeedback();
     }
     if (widget.active &&
-        (changedCategory || !oldWidget.active) &&
+        !oldWidget.active &&
         _bookings.store != null &&
         !_saving) {
       _refresh();
@@ -114,7 +131,7 @@ class _ScheduleViewState extends State<ScheduleView> {
   }
 
   void _chooseDate(DateTime date) {
-    if (_saving) return;
+    if (_saving || date == _date) return;
     setState(() {
       _date = date;
       _showAllBookingDates = false;
@@ -289,6 +306,7 @@ class _ScheduleViewState extends State<ScheduleView> {
             children: [
               BookingCalendar(
                 date: _date,
+                today: _today,
                 hasSchedule: _bookings.hasSchedule,
                 onDateChanged: _chooseDate,
               ),
@@ -299,40 +317,24 @@ class _ScheduleViewState extends State<ScheduleView> {
               else if (_loadFailed)
                 TextButton(
                   onPressed: _refresh,
-                  child: const Text('Không tải được lịch. Thử lại'),
-                )
-              else if (_isMine) ...[
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: FilterChip(
-                    label: const Text('Tất cả ngày'),
-                    selected: _showAllBookingDates,
-                    onSelected: (value) =>
-                        setState(() => _showAllBookingDates = value),
+                  child: Text(
+                    _hasVisibleData
+                        ? 'Đang hiển thị dữ liệu lần tải gần nhất. Thử lại'
+                        : 'Không tải được lịch. Thử lại',
                   ),
                 ),
-                if (bookingIndices.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 24),
-                    child: Center(
-                      child: Text(
-                        _showAllBookingDates
-                            ? 'Bạn chưa có đăng ký nào'
-                            : 'Bạn chưa có đăng ký trong ngày này',
-                      ),
-                    ),
-                  ),
-                for (final index in bookingIndices)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: BookingHistoryCard(
-                      booking: _bookings.bookingAt(index),
-                      onCancel: _bookings.role == UserRole.technician
-                          ? null
-                          : () => _cancelBooking(index),
-                    ),
-                  ),
-              ] else ...[
+              if (_hasVisibleData && _isMine)
+                ...buildMyBookingItems(
+                  indices: bookingIndices,
+                  bookingAt: _bookings.bookingAt,
+                  showAllDates: _showAllBookingDates,
+                  onShowAllDatesChanged: (value) =>
+                      setState(() => _showAllBookingDates = value),
+                  onCancel: _bookings.role == UserRole.technician
+                      ? null
+                      : _cancelBooking,
+                )
+              else if (_hasVisibleData)
                 BookingAssetList(
                   assets: assets,
                   isRoom: _category == BookingCategory.rooms,
@@ -345,7 +347,6 @@ class _ScheduleViewState extends State<ScheduleView> {
                   onSlotSelected: (index) => setState(() => _slotIndex = index),
                   onAssetSelected: _openBooking,
                 ),
-              ],
             ],
           ),
         ),
@@ -382,11 +383,11 @@ class _ScheduleViewState extends State<ScheduleView> {
         _category = category;
         _clearFeedback();
       });
-      if (_bookings.store != null && !_saving) _refresh();
     },
   );
 
   Future<void> _cancelBooking(int index) async {
+    if (_saving) return;
     final bookingId = _bookings.savedBookingId(index);
     final confirmed = await showDialog<bool>(
       context: context,
@@ -400,7 +401,10 @@ class _ScheduleViewState extends State<ScheduleView> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Xác nhận hủy'),
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFFAD3037),
+            ),
+            child: const Text('Xác nhận'),
           ),
         ],
       ),

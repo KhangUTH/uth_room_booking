@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../theme/app_colors.dart';
+import '../models/incident_report.dart';
 
 Future<Uint8List?> pickIncidentPhoto(BuildContext context) async {
   final source = await showModalBottomSheet<ImageSource>(
@@ -40,9 +41,9 @@ Future<Uint8List?> pickIncidentPhoto(BuildContext context) async {
 
   final photo = await ImagePicker().pickImage(
     source: source,
-    maxWidth: 1600,
-    maxHeight: 1600,
-    imageQuality: 85,
+    maxWidth: incidentPhotoMaxEdge.toDouble(),
+    maxHeight: incidentPhotoMaxEdge.toDouble(),
+    imageQuality: 75,
     requestFullMetadata: false,
   );
   return photo?.readAsBytes();
