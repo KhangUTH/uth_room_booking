@@ -2,7 +2,19 @@
 
 Ứng dụng Flutter đặt lịch phòng máy và thiết bị cho Sinh viên, Giảng viên và Nhân viên kỹ thuật.
 
-Chạy `flutter run` để đăng nhập vào UTHBookingApp bằng email và mật khẩu Supabase Auth. Chọn cổng phù hợp với vai trò của tài khoản. Tên, mã và vai trò lấy từ `profiles`; màn hình Cá nhân lấy email đăng nhập từ Auth. Số điện thoại, tùy chọn thông báo và các luồng đặt lịch, sự cố, kỹ thuật vẫn dùng dữ liệu trong app.
+- `mobile/` chứa app Flutter cho Android và iOS.
+- `web/` dành cho web quản trị React.
+- `supabase/` chứa backend dùng chung.
+
+Từ thư mục gốc, chạy:
+
+```powershell
+cd mobile
+flutter pub get
+flutter run
+```
+
+Đăng nhập vào UTHBookingApp bằng email và mật khẩu Supabase Auth. Chọn cổng phù hợp với vai trò của tài khoản.
 
 Để đăng nhập bằng mã, nhập đúng mã trong `profiles.student_code` (Sinh viên), `profiles.lecturer_code` (Giảng viên) hoặc `profiles.employee_code` (Nhân viên kỹ thuật) cùng mật khẩu của tài khoản. Edge Function `sign-in-by-code` tra mã theo cổng đăng nhập.
 
