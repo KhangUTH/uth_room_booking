@@ -15,6 +15,7 @@ class TechnicianWorkView extends StatelessWidget {
     required this.onFilter,
     required this.onChanged,
     required this.onSchedule,
+    this.onRefresh,
   });
 
   final List<TechnicianTask> jobs;
@@ -22,6 +23,7 @@ class TechnicianWorkView extends StatelessWidget {
   final ValueChanged<TaskFilter?> onFilter;
   final VoidCallback onChanged;
   final VoidCallback onSchedule;
+  final Future<void> Function()? onRefresh;
 
   Iterable<TechnicianTask> get urgentJobs =>
       jobs.where(TaskFilter.urgent.matches);
@@ -34,7 +36,8 @@ class TechnicianWorkView extends StatelessWidget {
       ...matchingJobs.where(TaskFilter.urgent.matches),
       ...matchingJobs.where((task) => !TaskFilter.urgent.matches(task)),
     ];
-    return ListView(
+    final content = ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(16),
       children: [
         Row(
@@ -75,6 +78,9 @@ class TechnicianWorkView extends StatelessWidget {
           ),
       ],
     );
+    return onRefresh == null
+        ? content
+        : RefreshIndicator(onRefresh: onRefresh!, child: content);
   }
 
   Widget _buildFilters() => DecoratedBox(

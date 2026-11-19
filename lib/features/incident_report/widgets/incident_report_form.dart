@@ -38,6 +38,9 @@ class IncidentReportForm extends StatefulWidget {
     this.avatar,
     this.roomNames,
     this.equipmentNames,
+    this.rooms,
+    this.equipment,
+    this.courseSections,
   });
 
   final String name;
@@ -48,6 +51,9 @@ class IncidentReportForm extends StatefulWidget {
   final ImageProvider? avatar;
   final Iterable<String>? roomNames;
   final Iterable<String>? equipmentNames;
+  final Map<String, String>? rooms;
+  final Map<String, String>? equipment;
+  final List<String>? courseSections;
 
   @override
   State<IncidentReportForm> createState() => _IncidentReportFormState();
@@ -69,12 +75,22 @@ class _IncidentReportFormState extends State<IncidentReportForm> {
 
   bool get _isTeacher => widget.role == UserRole.teacher;
 
-  Iterable<String> get _assets => switch (_type) {
-    _IncidentType.room =>
-      widget.roomNames ?? sampleRooms.map((room) => room.name),
-    _IncidentType.equipment =>
-      widget.equipmentNames ?? sampleDevices.map((device) => device.name),
+  Map<String, String>? get _liveAssets => switch (_type) {
+    _IncidentType.room => widget.rooms,
+    _IncidentType.equipment => widget.equipment,
   };
+
+  Map<String, String> get _assets =>
+      _liveAssets ??
+      {
+        for (final name in switch (_type) {
+          _IncidentType.room =>
+            widget.roomNames ?? sampleRooms.map((room) => room.name),
+          _IncidentType.equipment =>
+            widget.equipmentNames ?? sampleDevices.map((device) => device.name),
+        })
+          name: name,
+      };
 
   InputDecoration _input({String? hint}) {
     final border = OutlineInputBorder(
@@ -133,7 +149,7 @@ class _IncidentReportFormState extends State<IncidentReportForm> {
   }
 
   Future<void> _submit() async {
-    if (_submitting) return;
+    if (_submitting || _pickingPhotos) return;
     final form = _formKey.currentState!;
     final asset = _asset;
     if (!form.validate() || asset == null) return;
@@ -144,7 +160,8 @@ class _IncidentReportFormState extends State<IncidentReportForm> {
       title: _title,
       description: _description,
       type: _type.label,
-      asset: asset,
+      asset: _assets[asset]!,
+      assetId: _liveAssets == null ? null : asset,
       course: _isTeacher ? _course : '',
       needsSupport: _isTeacher && _needsTeachingSupport,
       occurredAt: _occurredAt,
@@ -166,6 +183,13 @@ class _IncidentReportFormState extends State<IncidentReportForm> {
       }
     } on FormatException catch (error) {
       if (mounted) setState(() => _submitError = error.message);
+      return;
+    } catch (_) {
+      if (mounted) {
+        setState(
+          () => _submitError = 'Không gửi được báo cáo. Vui lòng thử lại.',
+        );
+      }
       return;
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -225,32 +249,70 @@ class _IncidentReportFormState extends State<IncidentReportForm> {
                 ),
                 isExpanded: true,
                 items: [
-                  for (final asset in _assets)
-                    DropdownMenuItem(value: asset, child: Text(asset)),
+                  for (final asset in _assets.entries)
+                    DropdownMenuItem(
+                      value: asset.key,
+                      child: Text(
+                        _assets.values
+                                    .where((name) => name == asset.value)
+                                    .length >
+                                1
+                            ? '${asset.value} · ${asset.key.substring(0, asset.key.length < 8 ? asset.key.length : 8)}'
+                            : asset.value,
+                      ),
+                    ),
                 ],
                 onChanged: (asset) => setState(() => _asset = asset),
-                validator: (asset) => asset == null
+                validator: (asset) =>
+                    asset == null || !_assets.containsKey(asset)
                     ? 'Vui lòng chọn vị trí hoặc đối tượng'
                     : null,
               ),
               if (_isTeacher) ...[
                 const IncidentFieldTitle('Lớp học phần đang dạy'),
-                TextFormField(
-                  decoration: _input(hint: 'Lập trình di động - Nhóm 02')
-                      .copyWith(
-                        helperText: _needsTeachingSupport
-                            ? 'Bắt buộc khi cần hỗ trợ ngay'
-                            : null,
+                if (widget.courseSections case final courses?)
+                  DropdownButtonFormField<String>(
+                    initialValue: _course,
+                    decoration: _input().copyWith(
+                      helperText: courses.isEmpty
+                          ? 'Bạn chưa được phân công lớp học phần.'
+                          : _needsTeachingSupport
+                          ? 'Bắt buộc khi cần hỗ trợ ngay'
+                          : null,
+                    ),
+                    isExpanded: true,
+                    items: [
+                      const DropdownMenuItem(
+                        value: '',
+                        child: Text('Không chọn lớp học phần'),
                       ),
-                  textInputAction: TextInputAction.next,
-                  onSaved: (value) => _course = value?.trim() ?? '',
-                  validator: (value) => _needsTeachingSupport
-                      ? _requiredText(
-                          value,
-                          'Vui lòng nhập lớp học phần đang dạy',
-                        )
-                      : null,
-                ),
+                      for (final course in courses.toSet())
+                        DropdownMenuItem(value: course, child: Text(course)),
+                    ],
+                    onChanged: (value) => setState(() => _course = value ?? ''),
+                    validator: (value) =>
+                        _needsTeachingSupport &&
+                            (value == null || value.isEmpty)
+                        ? 'Vui lòng chọn lớp học phần đang dạy'
+                        : null,
+                  )
+                else
+                  TextFormField(
+                    decoration: _input(hint: 'Lập trình di động - Nhóm 02')
+                        .copyWith(
+                          helperText: _needsTeachingSupport
+                              ? 'Bắt buộc khi cần hỗ trợ ngay'
+                              : null,
+                        ),
+                    textInputAction: TextInputAction.next,
+                    onSaved: (value) => _course = value?.trim() ?? '',
+                    validator: (value) => _needsTeachingSupport
+                        ? _requiredText(
+                            value,
+                            'Vui lòng nhập lớp học phần đang dạy',
+                          )
+                        : null,
+                  ),
               ],
               const IncidentFieldTitle('Tiêu đề'),
               TextFormField(

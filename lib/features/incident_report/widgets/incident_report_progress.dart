@@ -12,6 +12,7 @@ class IncidentReportProgress extends StatelessWidget {
   final IncidentStatus status;
   static const _steps = [
     IncidentStatus.pending,
+    IncidentStatus.approved,
     IncidentStatus.inProgress,
     IncidentStatus.completed,
   ];

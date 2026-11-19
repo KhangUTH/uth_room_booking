@@ -1,4 +1,4 @@
-import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 
 enum TaskStatus {
   pending('Chờ nhận'),
@@ -9,7 +9,10 @@ enum TaskStatus {
   final String label;
 }
 
-class TechnicianTask {
+typedef SavedTaskProgress = ({TaskStatus status, DateTime updatedAt});
+
+class TechnicianTask extends ChangeNotifier {
+  final String? id;
   final String title;
   final String location;
   final String description;
@@ -20,11 +23,18 @@ class TechnicianTask {
   final List<Uint8List> evidence;
   TaskStatus _status;
   DateTime? _statusUpdatedAt;
+  final Future<SavedTaskProgress> Function(TaskStatus)? saveProgress;
+  final Future<List<Uint8List>> Function()? loadEvidence;
+  final Future<void> Function()? returnToQueue;
+  bool _returned = false;
+  bool _saving = false;
+  bool get saving => _saving;
 
   TaskStatus get status => _status;
   DateTime? get statusUpdatedAt => _statusUpdatedAt;
 
   TechnicianTask({
+    this.id,
     required this.title,
     required this.location,
     required this.description,
@@ -34,9 +44,51 @@ class TechnicianTask {
     this.isMaintenance = false,
     this.evidence = const [],
     this._status = TaskStatus.pending,
+    this._statusUpdatedAt,
+    this.saveProgress,
+    this.loadEvidence,
+    this.returnToQueue,
   });
 
+  Future<bool> advanceSaved() async {
+    if (_saving || _returned || _status == TaskStatus.completed) return false;
+    final save = saveProgress;
+    if (save == null) return advance();
+    _saving = true;
+    notifyListeners();
+    try {
+      final result = await save(_status);
+      _status = result.status;
+      _statusUpdatedAt = result.updatedAt;
+      return true;
+    } finally {
+      _saving = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> release() async {
+    final releaseWork = returnToQueue;
+    if (_saving ||
+        _returned ||
+        _status != TaskStatus.inProgress ||
+        releaseWork == null) {
+      return false;
+    }
+    _saving = true;
+    notifyListeners();
+    try {
+      await releaseWork();
+      _returned = true;
+      return true;
+    } finally {
+      _saving = false;
+      notifyListeners();
+    }
+  }
+
   bool advance() {
+    if (saveProgress != null) return false;
     final next = switch (_status) {
       TaskStatus.pending => TaskStatus.inProgress,
       TaskStatus.inProgress => TaskStatus.completed,

@@ -130,7 +130,9 @@ class IncidentReportDetailsSheet extends StatelessWidget {
                   updatedAt == null
                       ? status == IncidentStatus.cancelled
                             ? 'Báo cáo đã hủy.'
-                            : 'Đang chờ kỹ thuật viên tiếp nhận.'
+                            : status == IncidentStatus.approved
+                            ? 'Đã duyệt và phân công. Đang chờ kỹ thuật viên nhận việc.'
+                            : 'Đang chờ admin duyệt báo cáo.'
                       : '${status.label} lúc ${formatIncidentDateTime(sheetContext, updatedAt!)}',
                 ),
               ],

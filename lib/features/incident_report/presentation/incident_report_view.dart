@@ -48,10 +48,48 @@ class _IncidentReportViewState extends State<IncidentReportView> {
   String? _historyMessage;
   bool _loadingHistory = false;
   int _historyRequest = 0;
+  IncidentAssets? _assets;
+  List<String>? _courseSections;
+  bool _loadingAssets = false;
+  String? _assetsMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.active) _loadAssets();
+  }
+
+  Future<void> _loadAssets() async {
+    final store = widget.store;
+    if (store == null || _loadingAssets || _assets != null) return;
+    setState(() {
+      _loadingAssets = true;
+      _assetsMessage = null;
+    });
+    try {
+      final assets = await store.assets();
+      final courses = widget.role == UserRole.teacher
+          ? await store.teachingSections()
+          : null;
+      if (mounted) {
+        setState(() {
+          _assets = assets;
+          _courseSections = courses;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _assetsMessage = 'Không tải được danh mục. Thử lại');
+      }
+    } finally {
+      if (mounted) setState(() => _loadingAssets = false);
+    }
+  }
 
   @override
   void didUpdateWidget(covariant IncidentReportView oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (widget.active && !oldWidget.active) _loadAssets();
     if (widget.active && !oldWidget.active && _showHistory) _refreshHistory();
   }
 
@@ -148,17 +186,30 @@ class _IncidentReportViewState extends State<IncidentReportView> {
         child: IndexedStack(
           index: _showHistory ? 1 : 0,
           children: [
-            IncidentReportForm(
-              avatar: widget.avatar,
-              name: widget.name,
-              id: widget.id,
-              role: widget.role,
-              roomNames: widget.roomNames,
-              equipmentNames: widget.equipmentNames,
-              nextReportId: () =>
-                  widget.store == null ? widget.queue.nextId : 0,
-              onSubmitted: _submit,
-            ),
+            if (widget.store != null && _assets == null)
+              Center(
+                child: _loadingAssets
+                    ? const CircularProgressIndicator()
+                    : TextButton(
+                        onPressed: _loadAssets,
+                        child: Text(_assetsMessage ?? 'Tải danh mục tài sản'),
+                      ),
+              )
+            else
+              IncidentReportForm(
+                avatar: widget.avatar,
+                name: widget.name,
+                id: widget.id,
+                role: widget.role,
+                roomNames: widget.roomNames,
+                equipmentNames: widget.equipmentNames,
+                rooms: _assets?.rooms,
+                equipment: _assets?.equipment,
+                courseSections: _courseSections,
+                nextReportId: () =>
+                    widget.store == null ? widget.queue.nextId : 0,
+                onSubmitted: _submit,
+              ),
             _buildHistory(),
           ],
         ),

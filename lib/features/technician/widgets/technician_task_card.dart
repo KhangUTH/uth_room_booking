@@ -19,7 +19,29 @@ class TechnicianTaskCard extends StatelessWidget {
   final VoidCallback onChanged;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: task,
+    builder: (context, _) => _build(context),
+  );
+
+  Future<void> _advance(BuildContext context) async {
+    try {
+      if (await task.advanceSaved() && context.mounted) onChanged();
+    } catch (_) {
+      if (context.mounted) {
+        onChanged();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Không cập nhật được công việc. Tải lại danh sách rồi thử lại.',
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  Widget _build(BuildContext context) {
     final statusColor = task.status.color;
     final urgent = TaskFilter.urgent.matches(task);
     final action = switch (task.status) {
@@ -159,11 +181,11 @@ class TechnicianTaskCard extends StatelessWidget {
                                     horizontal: 8,
                                   ),
                                 ),
-                                onPressed: () {
-                                  if (task.advance()) onChanged();
-                                },
+                                onPressed: task.saving
+                                    ? null
+                                    : () => _advance(context),
                                 child: Text(
-                                  action,
+                                  task.saving ? 'Đang lưu…' : action,
                                   textAlign: TextAlign.center,
                                 ),
                               ),

@@ -25,10 +25,62 @@ class TaskDetailsPage extends StatefulWidget {
 
 class _TaskDetailsPageState extends State<TaskDetailsPage> {
   TechnicianTask get task => widget.task;
+  late final _evidence = task.loadEvidence?.call();
 
-  void _advance() {
+  Future<void> _release() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Trả lại công việc?'),
+        content: const Text(
+          'Công việc sẽ xuất hiện lại để kỹ thuật viên khác có thể nhận.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Tiếp tục sửa'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Trả lại'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || confirmed != true) return;
+    try {
+      if (!await task.release() || !mounted) return;
+      widget.onChanged();
+      Navigator.pop(context);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Không trả lại được công việc. Vui lòng tải lại và thử lại.',
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _advance() async {
     final accepting = task.status == TaskStatus.pending;
-    if (!task.advance()) return;
+    try {
+      if (!await task.advanceSaved() || !mounted) return;
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Không cập nhật được công việc. Vui lòng tải lại và thử lại.',
+            ),
+          ),
+        );
+      }
+      return;
+    }
     widget.onChanged();
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
@@ -43,7 +95,12 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: task,
+    builder: (context, _) => _build(context),
+  );
+
+  Widget _build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -80,7 +137,22 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
             _TaskDetailsSection(
               icon: Icons.photo_library_outlined,
               title: 'Hình ảnh minh chứng',
-              child: task.evidence.isEmpty
+              child: _evidence != null
+                  ? FutureBuilder(
+                      future: _evidence,
+                      builder: (context, snapshot) {
+                        if (snapshot.hasError) {
+                          return const Text(
+                            'Không tải được ảnh. Mở lại chi tiết để thử lại.',
+                          );
+                        }
+                        if (!snapshot.hasData) {
+                          return const LinearProgressIndicator();
+                        }
+                        return EvidencePhotos(photos: snapshot.requireData);
+                      },
+                    )
+                  : task.evidence.isEmpty
                   ? const Text(
                       'Không có ảnh minh chứng được đính kèm.',
                       style: TextStyle(color: AppColors.textMuted),
@@ -96,15 +168,31 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
               top: false,
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-                child: SizedBox(
-                  height: 48,
-                  child: ElevatedButton(
-                    onPressed: _advance,
-                    child: Text(switch (task.status) {
-                      TaskStatus.pending => 'Nhận việc',
-                      _ => 'Hoàn tất công việc',
-                    }),
-                  ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (task.status == TaskStatus.inProgress &&
+                        task.returnToQueue != null)
+                      TextButton(
+                        onPressed: task.saving ? null : _release,
+                        child: const Text('Trả lại công việc'),
+                      ),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: ElevatedButton(
+                        onPressed: task.saving ? null : _advance,
+                        child: Text(
+                          task.saving
+                              ? 'Đang lưu…'
+                              : switch (task.status) {
+                                  TaskStatus.pending => 'Nhận việc',
+                                  _ => 'Hoàn tất công việc',
+                                },
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),

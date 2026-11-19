@@ -15,7 +15,57 @@ Migration `connect_mobile_incident_reports_and_evidence` nối phần gửi, xem
 và hủy báo cáo của sinh viên và giảng viên với `incident_reports`. Tùy
 chọn hỗ trợ ngay thuộc giảng viên và yêu cầu nhập lớp đang dạy. Ảnh PNG
 được lưu ở bucket riêng tư `incident-images` theo tài khoản, tối đa 5 MB.
-Luồng tiếp nhận của kỹ thuật viên và đề xuất bảo trì vẫn mô phỏng trong app.
+Đề xuất bảo trì vẫn mô phỏng trong app.
+
+Form báo cáo đọc danh mục riêng theo UUID và gửi `room_id` hoặc `equipment_id`;
+không tra lại bằng tên. Phòng chưa lưu trữ và thiết bị chung vẫn có thể báo lỗi
+khi đang ngừng hoạt động hoặc bị hỏng. Lỗi tải danh mục không chặn lịch sử báo
+cáo. Khi gửi lỗi, form giữ nội dung và mã gửi để thử lại mà không tạo bản sao.
+
+## Duyệt trên web và giao việc cho kỹ thuật viên
+
+Migration mới [`20261117090000_approve_and_assign_incident_reports.sql`](migrations/20261117090000_approve_and_assign_incident_reports.sql)
+**chưa được áp dụng lên Supabase từ phiên làm việc này**. Cần chạy bằng SQL Editor
+với quyền postgres trước khi dùng phiên bản web/app mới. Migration yêu cầu schema
+`connect_mobile_incident_reports_and_evidence` hiện tại và vai trò `admin` của web;
+không chạy bản nháp nền tảng cũ. Bản snapshot trong fixtures chỉ dùng kiểm thử.
+
+- SV/GV tạo báo cáo với `status = open`, chưa có `approved_at`, `approved_by`,
+  `assigned_to`. Chỉ báo cáo chưa duyệt còn được hủy.
+- Web admin trong `D:\Codeprogram\HKDN\projects\UTH-Booking-Room` gọi
+  `admin_incident_reports` để xem dữ liệu thật.
+  Nút **Duyệt** gọi `approve_incident_report(report_id)`.
+  RPC ghi người duyệt, giờ duyệt; chưa chỉ định kỹ thuật viên.
+- Trạng thái `open` có `approved_at` được app hiển thị là **Đã duyệt**;
+  giữ nguyên enum PostgreSQL. Việc chưa ai nhận xuất hiện cho mọi kỹ thuật viên.
+  Khi nhận, RPC khóa bản ghi và ghi `assigned_to = auth.uid()`; từ đó chỉ người
+  nhận được đọc, sửa và hoàn tất. Người nhận có thể **Trả lại công việc** qua
+  `release_technician_incident`, đưa về `open` và xóa `assigned_to` để mọi người
+  thấy lại. Không hủy báo cáo của SV/GV và không cần admin duyệt lại.
+- App gọi `technician_incident_jobs`, làm mới khi vào Trang chủ/Công việc, kéo
+  xuống trong Công việc và mỗi 30 giây. Không trộn việc mẫu vào phiên thật.
+  `advance_technician_incident` chuyển `open → in_progress → resolved`;
+  cập nhật `status_updated_at`, `resolved_by`, `resolved_at` phía database.
+  App chỉ đổi trạng thái sau khi RPC thành công. RPC khóa bản ghi để chống
+  duyệt/hủy/nhận đồng thời và cho phép thử lại cùng thao tác khi mất phản hồi.
+- SV/GV thấy tiến độ khi mở lại Báo cáo của tôi hoặc kéo xuống làm mới.
+  Ảnh riêng tư được cấp quyền theo cùng quy tắc hàng đợi và người nhận,
+  dựa trên báo cáo, không cấp quyền đọc toàn bucket.
+
+Đã đối chiếu kết quả [`inspect_incident_workflow.sql`](inspect_incident_workflow.sql)
+người dùng cung cấp ngày 17/11/2026. Trigger `validate_incident_submission`
+được bổ sung duy nhất bước `in_progress → open` khi chính người nhận trả lại;
+toàn bộ kiểm tra nội dung/ảnh được giữ. `validate_incident_teaching_section`
+được giữ nguyên. Kiểm thử
+cục bộ chạy lại với đúng các định nghĩa trigger, policy và quyền cột trong kết
+quả này. Lớp học phần GV trong form được chọn từ `teaching_sections` theo
+`lecturer_id` của tài khoản, lưu đúng chuỗi `code · name` mà trigger yêu cầu.
+
+Đã kiểm thử migration và [quyền duyệt/phân công](tests/database/incident_approval.sql)
+trên PostgreSQL cục bộ, với lần lượt `standalone_auth.sql`, `current_schema.sql`,
+`incident_workflow.sql` trong `tests/database/fixtures/`, rồi migration trên.
+Fixture Storage/Auth là mô phỏng; vẫn cần kiểm thử bằng tài khoản thật trên
+Supabase sau khi áp dụng. Tất cả assertion nghiệp vụ chạy trong `ROLLBACK`.
 
 Migration `expose_approved_technician_usage_schedule` cấp cho kỹ thuật viên
 đang hoạt động quyền xem tài sản, địa điểm, ca và trạng thái của các lượt

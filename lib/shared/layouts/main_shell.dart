@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import "package:flutter/material.dart";
 
 import 'package:uth_room_booking/core/router/app_route.dart';
@@ -24,6 +26,7 @@ import '../../features/profile/data/profile_avatar_storage.dart';
 import '../../features/profile/presentation/profile_view.dart';
 import '../../features/technician/controllers/maintenance_proposal_controller.dart';
 import '../../features/technician/data/demo_incident_queue.dart';
+import '../../features/technician/data/technician_work_store.dart';
 import '../../features/technician/models/task_filter.dart';
 import '../../features/technician/models/technician_task.dart';
 import '../../features/technician/presentation/maintenance_proposals_page.dart';
@@ -69,6 +72,7 @@ class MainShell extends StatefulWidget {
   final UserRole role;
   final DemoIncidentQueue? incidentQueue;
   final IncidentReportStore? incidentStore;
+  final TechnicianWorkStore? workStore;
   final Future<void> Function()? onSignOut;
   final String? accountEmail;
   final String? faculty;
@@ -84,6 +88,7 @@ class MainShell extends StatefulWidget {
     this.role = UserRole.student,
     this.incidentQueue,
     this.incidentStore,
+    this.workStore,
     this.onSignOut,
     this.accountEmail,
     this.faculty,
@@ -168,6 +173,13 @@ class _MainShellState extends State<MainShell> {
     final storage = widget.avatarStorage;
     if (storage != null) _loadAvatar(storage);
     if (!_isTechnician && widget.bookingStore != null) _refreshHomeBookings();
+    if (_isTechnician && widget.workStore != null) {
+      unawaited(_loadWork());
+      _workTimer = Timer.periodic(
+        const Duration(seconds: 30),
+        (_) => unawaited(_loadWork()),
+      );
+    }
     widget.noticeStore
       ?..addListener(_noticeChanged)
       ..start();
@@ -177,6 +189,7 @@ class _MainShellState extends State<MainShell> {
 
   @override
   void dispose() {
+    _workTimer?.cancel();
     if (!_isTechnician) _bookings.dispose();
     widget.noticeStore
       ?..removeListener(_noticeChanged)
@@ -217,7 +230,51 @@ class _MainShellState extends State<MainShell> {
 
   late final _sampleJobs = createSampleTechnicianTasks();
   late final _incidentQueue = widget.incidentQueue ?? DemoIncidentQueue();
-  List<TechnicianTask> get _jobs => [..._incidentQueue.tasks, ..._sampleJobs];
+  List<TechnicianTask> get _jobs => widget.workStore == null
+      ? [..._incidentQueue.tasks, ..._sampleJobs]
+      : _remoteJobs;
+  List<TechnicianTask> _remoteJobs = [];
+  Timer? _workTimer;
+  Future<void>? _loadingWork;
+  bool _workBusy = false;
+  String? _workError;
+
+  Future<void> _loadWork() =>
+      _loadingWork ??= _loadWorkOnce().whenComplete(() => _loadingWork = null);
+
+  Future<void> _loadWorkOnce() async {
+    final store = widget.workStore;
+    if (!mounted || store == null || _remoteJobs.any((task) => task.saving)) {
+      return;
+    }
+    setState(() {
+      _workBusy = true;
+      _workError = null;
+    });
+    try {
+      final jobs = await store.load();
+      if (mounted && !_remoteJobs.any((task) => task.saving)) {
+        setState(() => _remoteJobs = jobs);
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(
+          () => _workError = 'Không tải được công việc đã duyệt. Thử lại',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _workBusy = false);
+    }
+  }
+
+  Widget _withWorkStatus(Widget child) => Column(
+    children: [
+      if (_workBusy) const LinearProgressIndicator(),
+      if (_workError case final error?)
+        TextButton(onPressed: _loadWork, child: Text(error)),
+      Expanded(child: child),
+    ],
+  );
   TaskFilter? _workFilter = TaskFilter.pending;
   bool _showWorkSchedule = false;
   bool _showTechnicianAssets = false;
@@ -244,12 +301,17 @@ class _MainShellState extends State<MainShell> {
   void _setTechnicianAssets(bool value) =>
       setState(() => _showTechnicianAssets = value);
 
-  void _refreshWork() => setState(() {
-    if (_workFilter == TaskFilter.urgent &&
-        !_jobs.any(TaskFilter.urgent.matches)) {
-      _workFilter = null;
-    }
-  });
+  void _refreshWork() {
+    if (!mounted) return;
+    setState(() {
+      if (_workFilter == TaskFilter.urgent &&
+          !_jobs.any(TaskFilter.urgent.matches)) {
+        _workFilter = null;
+      }
+    });
+    unawaited(_loadWork());
+  }
+
   void _setWorkSchedule(bool value) =>
       setState(() => _showWorkSchedule = value);
 
@@ -259,6 +321,7 @@ class _MainShellState extends State<MainShell> {
       (_isTechnician ? technicianNotices : demoNotices);
 
   void _openWork(TaskFilter? filter) {
+    unawaited(_loadWork());
     FocusManager.instance.primaryFocus?.unfocus();
     setState(() {
       _workFilter = filter;
@@ -285,6 +348,9 @@ class _MainShellState extends State<MainShell> {
   }
 
   void _selectTab(_ShellTab tab, {BookingCategory? bookingCategory}) {
+    if (_isTechnician && (tab == _ShellTab.work || tab == _ShellTab.home)) {
+      unawaited(_loadWork());
+    }
     FocusManager.instance.primaryFocus?.unfocus();
     setState(() {
       _selectedTab = tab;
@@ -380,13 +446,18 @@ class _MainShellState extends State<MainShell> {
                             store: widget.bookingStore,
                             active: _selectedTab == _ShellTab.work,
                           )
-                        : TechnicianWorkView(
-                            jobs: _jobs,
-                            filter: _workFilter,
-                            onFilter: (filter) =>
-                                setState(() => _workFilter = filter),
-                            onChanged: _refreshWork,
-                            onSchedule: () => _setWorkSchedule(true),
+                        : _withWorkStatus(
+                            TechnicianWorkView(
+                              jobs: _jobs,
+                              filter: _workFilter,
+                              onFilter: (filter) =>
+                                  setState(() => _workFilter = filter),
+                              onChanged: _refreshWork,
+                              onSchedule: () => _setWorkSchedule(true),
+                              onRefresh: widget.workStore == null
+                                  ? null
+                                  : _loadWork,
+                            ),
                           ),
                   _ShellTab.schedule => _withCatalog(
                     (catalog) => ScheduleView(
@@ -397,20 +468,14 @@ class _MainShellState extends State<MainShell> {
                       active: _selectedTab == _ShellTab.schedule,
                     ),
                   ),
-                  _ShellTab.reports => _withCatalog(
-                    (catalog) => IncidentReportView(
-                      avatar: _avatar,
-                      name: widget.name,
-                      id: widget.id,
-                      role: widget.role,
-                      queue: _incidentQueue,
-                      store: widget.incidentStore,
-                      active: _selectedTab == _ShellTab.reports,
-                      roomNames: catalog?.rooms.map((room) => room.name),
-                      equipmentNames: catalog?.equipment.map(
-                        (device) => device.name,
-                      ),
-                    ),
+                  _ShellTab.reports => IncidentReportView(
+                    avatar: _avatar,
+                    name: widget.name,
+                    id: widget.id,
+                    role: widget.role,
+                    queue: _incidentQueue,
+                    store: widget.incidentStore,
+                    active: _selectedTab == _ShellTab.reports,
                   ),
                   _ShellTab.profile => ProfileView(
                     id: widget.id,
@@ -432,36 +497,38 @@ class _MainShellState extends State<MainShell> {
     );
   }
 
-  Widget _buildTechnicianHome() => IndexedStack(
-    index: _showMaintenance
-        ? (_showTechnicianAssets ? 2 : 1)
-        : (_showTechnicianAssets ? 1 : 0),
-    children: [
-      TechnicianDashboard(
-        jobs: _jobs,
-        notices: widget.noticeStore?.notices,
-        onWork: _openWork,
-        onNotifications: _openNotifications,
-        onAssets: () => _setTechnicianAssets(true),
-        onMaintenance: _openMaintenance,
-      ),
-      if (_showTechnicianAssets)
-        _withCatalog(
-          (catalog) => TechnicianAssetsPage(
-            onAsset: (asset) => _openMaintenance(asset: asset),
-            catalog: catalog,
-            onRefresh: widget.loadCatalog == null ? null : _reloadCatalog,
-          ),
+  Widget _buildTechnicianHome() => _withWorkStatus(
+    IndexedStack(
+      index: _showMaintenance
+          ? (_showTechnicianAssets ? 2 : 1)
+          : (_showTechnicianAssets ? 1 : 0),
+      children: [
+        TechnicianDashboard(
+          jobs: _jobs,
+          notices: widget.noticeStore?.notices,
+          onWork: _openWork,
+          onNotifications: _openNotifications,
+          onAssets: () => _setTechnicianAssets(true),
+          onMaintenance: _openMaintenance,
         ),
-      if (_showMaintenance)
-        _withCatalog(
-          (catalog) => MaintenanceProposalsPage(
-            controller: _maintenance,
-            initialAsset: _maintenanceAsset,
-            catalog: catalog,
+        if (_showTechnicianAssets)
+          _withCatalog(
+            (catalog) => TechnicianAssetsPage(
+              onAsset: (asset) => _openMaintenance(asset: asset),
+              catalog: catalog,
+              onRefresh: widget.loadCatalog == null ? null : _reloadCatalog,
+            ),
           ),
-        ),
-    ],
+        if (_showMaintenance)
+          _withCatalog(
+            (catalog) => MaintenanceProposalsPage(
+              controller: _maintenance,
+              initialAsset: _maintenanceAsset,
+              catalog: catalog,
+            ),
+          ),
+      ],
+    ),
   );
 
   late final _bookings = _createBookingController();
