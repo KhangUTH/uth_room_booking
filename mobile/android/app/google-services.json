@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "204327307827",
+    "project_id": "uth-lab",
+    "storage_bucket": "uth-lab.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:204327307827:android:659d38a8472217e3ff7146",
+        "android_client_info": {
+          "package_name": "com.example.uth_room_booking"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCGG2y1HdWVmpr8WPw_JbLg-aimwNX8iLE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:204327307827:android:c50a1b5a1fdde20fff7146",
+        "android_client_info": {
+          "package_name": "vn.uthlab.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCGG2y1HdWVmpr8WPw_JbLg-aimwNX8iLE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

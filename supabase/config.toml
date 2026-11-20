@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.clean-expired-incident-photos]
 verify_jwt = true
+
+[functions.send-mobile-push]
+verify_jwt = false

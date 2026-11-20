@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uth_room_booking/core/router/app_router.dart';
 import 'package:uth_room_booking/features/auth/models/user_role.dart';
 import 'package:uth_room_booking/features/booking/controllers/booking_controller.dart';
 import 'package:uth_room_booking/features/booking/data/sample_booking_data.dart';
+import 'package:uth_room_booking/features/booking/presentation/schedule_view.dart';
 import 'package:uth_room_booking/features/booking/widgets/booking_calendar.dart';
 import 'package:uth_room_booking/theme/app_colors.dart';
 import 'package:uth_room_booking/shared/layouts/main_shell.dart';
@@ -11,6 +13,41 @@ import 'package:uth_room_booking/shared/layouts/main_shell.dart';
 import 'support/widget_test_helpers.dart';
 
 void main() {
+  setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  testWidgets('lưu xác nhận lưu ý Lịch riêng cho từng tài khoản', (
+    tester,
+  ) async {
+    final bookings = BookingController(
+      today: DateTime(2026, 11, 17),
+      role: UserRole.student,
+      initialBookings: [],
+    );
+    addTearDown(bookings.dispose);
+
+    Future<void> openSchedule(String account) async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ScheduleView(bookings: bookings, noticeAccountId: account),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    final understood = find.text('Đã hiểu');
+    await openSchedule('student-one');
+    expect(understood, findsOneWidget);
+    await tester.tap(understood);
+    await tester.pumpAndSettle();
+    await openSchedule('student-one');
+    expect(understood, findsNothing);
+    await openSchedule('student-two');
+    expect(understood, findsOneWidget);
+  });
+
   testWidgets('chấm cam ngày mai chỉ hiện khi có lịch', (tester) async {
     final today = DateTime(2026, 11, 17);
     final tomorrow = DateTime(2026, 11, 18);
@@ -101,6 +138,8 @@ void main() {
     );
     await tester.tap(find.text('Lịch'));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('Đã hiểu'));
+    await tester.pumpAndSettle();
     expect(find.text('Phòng thư viện'), findsNothing);
     await tester.tap(find.text('Ca 3'));
     await tester.pumpAndSettle();
@@ -152,6 +191,8 @@ void main() {
     );
 
     await tester.tap(find.text('Lịch'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Đã hiểu'));
     await tester.pumpAndSettle();
     expect(find.text('Phòng B2-304'), findsOneWidget);
     expect(find.text('Phòng B2-305'), findsOneWidget);

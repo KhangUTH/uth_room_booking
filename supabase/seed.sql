@@ -5,12 +5,13 @@ from (values
   ('Phòng máy H003', 'Toà H, Tầng trệt', 32, true, false, true),
   ('Phòng máy H004', 'Toà H, Tầng trệt', 32, false, true, true),
   ('Phòng máy H509', 'Toà H, Tầng 5', 32, true, false, true),
-  ('Phòng thư viện', 'Toà K, Tầng 1', 20, true, false, false)
+  ('Phòng thư viện', 'Toà K, Tầng 1', 20, true, false, false),
+  ('Phòng máy I002', 'Tòa I, Tầng trệt', 60, false, false, true)
 ) as item(name, location, capacity, is_active, is_archived, allows_teacher_booking)
 where not exists (select from public.rooms r where r.name = item.name);
 
-update public.rooms set location = 'Tòa I, Tầng trệt' where name = 'Phòng máy I001';
-update public.rooms set location = 'Tòa I, Tầng 1' where name = 'Phòng máy I101';
+update public.rooms set location = 'Tòa I, Tầng trệt', capacity = 60, is_active = false where name in ('Phòng máy I001', 'Phòng máy I002');
+update public.rooms set location = 'Tòa I, Tầng 1', capacity = 60, is_active = false where name = 'Phòng máy I101';
 
 insert into public.equipment (name, location)
 select item.name, 'H005 - Trung Tâm Thông Tin Thư Viện'

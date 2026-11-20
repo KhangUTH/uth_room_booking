@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../auth/models/user_role.dart';
+import '../../notifications/data/notice_store.dart';
 import '../data/profile_contact_store.dart';
-import '../widgets/app_permission_settings.dart';
 import '../widgets/edit_profile_dialog.dart';
+import 'profile_support_page.dart';
 
 import 'package:uth_room_booking/core/router/app_route.dart';
 import 'package:uth_room_booking/theme/app_colors.dart';
@@ -22,6 +24,7 @@ class ProfileView extends StatefulWidget {
     this.accountEmail,
     this.faculty,
     this.contactStore,
+    this.noticeStore,
   });
 
   final String id;
@@ -30,14 +33,15 @@ class ProfileView extends StatefulWidget {
   final String? accountEmail;
   final String? faculty;
   final ProfileContactStore? contactStore;
+  final NoticeStore? noticeStore;
 
   @override
   State<ProfileView> createState() => _ProfileViewState();
 }
 
 class _ProfileViewState extends State<ProfileView> {
-  bool _notifications = true;
-  bool _noticeVisible = false;
+  bool _notifications = false;
+  bool _savingNotificationPreference = true;
   String _email = '';
   String _phone = '';
   bool _phoneLoaded = false;
@@ -46,7 +50,62 @@ class _ProfileViewState extends State<ProfileView> {
   @override
   void initState() {
     super.initState();
+    _loadNotificationPreference();
     if (widget.contactStore != null) _loadPhone();
+  }
+
+  String get _notificationPreferenceKey =>
+      NoticeStore.pushKey(widget.role.name, widget.id);
+
+  bool get _canSetPush =>
+      NoticeStore.supportsPush && widget.noticeStore != null;
+
+  bool get _canChangePush => _canSetPush && !_savingNotificationPreference;
+
+  Future<void> _loadNotificationPreference() async {
+    if (!_canSetPush) return;
+    try {
+      final enabled = await SharedPreferencesAsync().getBool(
+        _notificationPreferenceKey,
+      );
+      if (mounted) setState(() => _notifications = enabled ?? false);
+    } catch (_) {
+      // Leave notifications disabled when there is no readable preference.
+    } finally {
+      if (mounted) setState(() => _savingNotificationPreference = false);
+    }
+  }
+
+  Future<void> _setNotificationPreference(bool enabled) async {
+    if (!_canChangePush || enabled == _notifications) return;
+    final previous = _notifications;
+    setState(() {
+      _notifications = enabled;
+      _savingNotificationPreference = true;
+    });
+    var applied = false;
+    try {
+      applied = await widget.noticeStore?.setPushEnabled(enabled) == true;
+      if (!applied) {
+        if (mounted) {
+          _showProfileError('Hãy cấp quyền thông báo trong cài đặt thiết bị.');
+        }
+        return;
+      }
+      await SharedPreferencesAsync().setBool(
+        _notificationPreferenceKey,
+        enabled,
+      );
+    } catch (_) {
+      if (mounted) _showProfileError('Không lưu được tùy chọn thông báo.');
+    } finally {
+      if (mounted) {
+        setState(() {
+          if (!applied) _notifications = previous;
+          _savingNotificationPreference = false;
+        });
+      }
+    }
   }
 
   Future<bool> _loadPhone() async {
@@ -125,11 +184,7 @@ class _ProfileViewState extends State<ProfileView> {
       await widget.onSignOut?.call();
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Không thể đăng xuất. Vui lòng thử lại.'),
-          ),
-        );
+        _showProfileError('Không thể đăng xuất. Vui lòng thử lại.');
       }
       return;
     }
@@ -174,16 +229,23 @@ class _ProfileViewState extends State<ProfileView> {
               value: _notifications,
               activeThumbColor: Colors.white,
               activeTrackColor: AppColors.primary,
-              onChanged: (value) => setState(() => _notifications = value),
+              onChanged: _canChangePush ? _setNotificationPreference : null,
             ),
-            onTap: () => setState(() => _notifications = !_notifications),
+            onTap: _canChangePush
+                ? () => _setNotificationPreference(!_notifications)
+                : null,
           ),
-          _action(Icons.lock_outline, 'Đổi mật khẩu'),
+          _ProfileRow(
+            icon: Icons.lock_outline,
+            title: 'Đổi mật khẩu',
+            onTap: _changePassword,
+            trailing: const Icon(Icons.chevron_right, color: _muted, size: 18),
+          ),
           _ProfileRow(
             icon: Icons.admin_panel_settings_outlined,
             title: 'Cài đặt cấp quyền',
             trailing: const Icon(Icons.chevron_right, color: _muted, size: 18),
-            onTap: () => openAppPermissionSettings(context),
+            onTap: () => Navigator.pushNamed(context, AppRoute.appPermissions),
           ),
         ],
       ),
@@ -192,8 +254,8 @@ class _ProfileViewState extends State<ProfileView> {
       const SizedBox(height: 8),
       _ProfileCard(
         rows: [
-          _action(Icons.help_outline, 'Trung tâm trợ giúp'),
-          _action(Icons.description_outlined, 'Điều khoản sử dụng'),
+          _supportAction(Icons.help_outline),
+          _supportAction(Icons.description_outlined, terms: true),
         ],
       ),
       const SizedBox(height: 16),
@@ -226,24 +288,30 @@ class _ProfileViewState extends State<ProfileView> {
     caption: label,
   );
 
-  Future<void> _showDevelopmentNotice() async {
-    if (_noticeVisible) return;
-    _noticeVisible = true;
-    try {
-      await ScaffoldMessenger.of(context)
-          .showSnackBar(
-            const SnackBar(content: Text('Tính năng đang phát triển.')),
-          )
-          .closed;
-    } finally {
-      _noticeVisible = false;
+  Future<void> _changePassword() async {
+    final store = widget.contactStore;
+    if (store == null) {
+      _showProfileError('Bạn cần đăng nhập để đổi mật khẩu.');
+      return;
     }
+    final changed = await showChangePasswordDialog(
+      context,
+      store.changePassword,
+    );
+    if (!mounted || changed != true) return;
+    ScaffoldMessenger.of(context)
+      ..removeCurrentSnackBar()
+      ..showSnackBar(const SnackBar(content: Text('Đã đổi mật khẩu.')));
   }
 
-  Widget _action(IconData icon, String title) => _ProfileRow(
+  Widget _supportAction(IconData icon, {bool terms = false}) => _ProfileRow(
     icon: icon,
-    title: title,
-    onTap: _showDevelopmentNotice,
+    title: terms ? ProfileSupportPage.termsTitle : ProfileSupportPage.helpTitle,
+    onTap: () => Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => ProfileSupportPage(role: widget.role, terms: terms),
+      ),
+    ),
     trailing: const Icon(Icons.chevron_right, color: _muted, size: 18),
   );
 }

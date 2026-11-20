@@ -79,6 +79,9 @@ class BookingCalendar extends StatelessWidget {
       _ when hasSchedule(day) => AppColors.primary,
       _ => Colors.transparent,
     };
+    final sundayTextColor = day.weekday == DateTime.sunday
+        ? const Color(0xFFC35151)
+        : null;
     return Material(
       color: selected ? _pale : Colors.white,
       shape: RoundedRectangleBorder(
@@ -94,11 +97,12 @@ class BookingCalendar extends StatelessWidget {
             children: [
               Text(
                 day.weekday == DateTime.sunday ? 'CN' : 'T${day.weekday + 1}',
-                style: const TextStyle(fontSize: 11),
+                style: TextStyle(fontSize: 11, color: sundayTextColor),
               ),
               Text(
                 '${day.day}',
                 style: TextStyle(
+                  color: sundayTextColor,
                   fontWeight: selected ? FontWeight.bold : FontWeight.normal,
                 ),
               ),

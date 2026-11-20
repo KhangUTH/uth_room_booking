@@ -28,6 +28,10 @@ Future<AssetCatalog> loadAssetCatalog(SupabaseClient client) async {
     active ? SlotStatus.free : SlotStatus.maintenance,
     growable: false,
   );
+  final orderedRooms = [
+    ...rows[0].where((room) => room['is_active'] == true),
+    ...rows[0].where((room) => room['is_active'] != true),
+  ];
 
   return (
     roomsUnavailableToTeachers: {
@@ -39,7 +43,7 @@ Future<AssetCatalog> loadAssetCatalog(SupabaseClient client) async {
         row['id'] as String: row['name'] as String,
     },
     rooms: [
-      for (final room in rows[0])
+      for (final room in orderedRooms)
         (
           name: room['name'] as String,
           detail: '${room['location']} · ${room['capacity']} máy',

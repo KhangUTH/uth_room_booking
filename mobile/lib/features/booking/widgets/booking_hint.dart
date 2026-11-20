@@ -1,6 +1,92 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../theme/app_colors.dart';
+
+class BookingUsageNotice extends StatelessWidget {
+  const BookingUsageNotice({super.key});
+
+  static Future<void> showOnce(
+    BuildContext context, {
+    required String role,
+    required String account,
+    required bool Function() isActive,
+  }) async {
+    try {
+      final preferences = await SharedPreferences.getInstance();
+      final key = 'booking_usage_notice_v1.$role.$account';
+      if (!context.mounted ||
+          !isActive() ||
+          preferences.getBool(key) == true ||
+          ModalRoute.of(context)?.isCurrent != true) {
+        return;
+      }
+      final acknowledged = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const BookingUsageNotice(),
+      );
+      if (acknowledged == true) await preferences.setBool(key, true);
+    } on MissingPluginException {
+      // Local storage is unavailable on this platform.
+    } on PlatformException {
+      // Keep scheduling available if preference storage fails.
+    }
+  }
+
+  static const _rules = [
+    'Trước khi rời phòng, tắt quạt, đèn và nguồn điện của các thiết bị đã sử dụng.',
+    'Sử dụng đúng phòng, thiết bị và khung giờ đã đăng ký.',
+    'Giữ vệ sinh và sắp xếp lại thiết bị sau khi sử dụng.',
+    'Nếu phát hiện hư hỏng, gửi báo cáo sự cố trong app để kỹ thuật viên hỗ trợ.',
+  ];
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    backgroundColor: Colors.white,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+    scrollable: true,
+    title: Column(
+      children: [
+        Image.asset('assets/images/logo/logo.jpg', height: 36),
+        const SizedBox(height: 14),
+        Text(
+          'Lưu ý khi sử dụng phòng và thiết bị',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.titleLarge,
+        ),
+      ],
+    ),
+    content: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (final rule in _rules)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(
+                  Icons.check_circle_outline,
+                  size: 18,
+                  color: AppColors.primary,
+                ),
+                const SizedBox(width: 8),
+                Expanded(child: Text(rule)),
+              ],
+            ),
+          ),
+      ],
+    ),
+    actions: [
+      FilledButton(
+        onPressed: () => Navigator.pop(context, true),
+        child: const Text('Đã hiểu'),
+      ),
+    ],
+  );
+}
 
 class BookingFeedback extends StatelessWidget {
   const BookingFeedback({

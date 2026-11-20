@@ -13,6 +13,7 @@ import '../../features/notifications/data/notice_store.dart';
 import '../../features/notifications/presentation/notifications_view.dart';
 import '../../features/profile/data/profile_avatar_storage.dart';
 import '../../features/profile/data/profile_contact_store.dart';
+import '../../features/profile/presentation/app_permissions_page.dart';
 import '../../features/room/presentation/room_list_page.dart';
 import '../../features/splash/presentation/splash_screen.dart';
 import '../../features/technician/data/demo_incident_queue.dart';
@@ -54,7 +55,12 @@ abstract final class AppRouter {
         role: args.role,
         loadCatalog: supabase == null ? null : () => loadAssetCatalog(supabase),
         bookingStore: supabase == null ? null : BookingStore(supabase),
-        noticeStore: supabase == null ? null : NoticeStore(supabase),
+        noticeStore: supabase == null
+            ? null
+            : NoticeStore(
+                supabase,
+                pushPreferenceKey: NoticeStore.pushKey(args.role.name, args.id),
+              ),
         technicianIncidentStore:
             supabase != null && args.role == UserRole.technician
             ? TechnicianIncidentStore(supabase)
@@ -83,6 +89,7 @@ abstract final class AppRouter {
       ),
       (AppRoute.rooms, _) => const RoomListPage(),
       (AppRoute.equipment, _) => const DeviceListPage(),
+      (AppRoute.appPermissions, _) => const AppPermissionsPage(),
       (AppRoute.notifications, NotificationsRouteArgs args) =>
         NotificationsView(
           read: args.read,

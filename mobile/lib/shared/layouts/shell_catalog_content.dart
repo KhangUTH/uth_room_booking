@@ -2,6 +2,41 @@ import 'package:flutter/material.dart';
 
 import '../../features/booking/data/asset_catalog.dart';
 
+class ShellCatalogController {
+  ShellCatalogController({required this.load, required this.onReload});
+
+  final Future<AssetCatalog>? Function() load;
+  final VoidCallback onReload;
+  AssetCatalog? _lastCatalog;
+  Future<AssetCatalog?>? _reloading;
+  late Future<AssetCatalog>? _catalog = _request();
+
+  Future<AssetCatalog>? _request() =>
+      load()?.then((catalog) => _lastCatalog = catalog);
+
+  Future<AssetCatalog?> reload() =>
+      _reloading ??= _reloadOnce().whenComplete(() => _reloading = null);
+
+  Future<AssetCatalog?> _reloadOnce() async {
+    final request = _request();
+    if (request == null) return null;
+    _catalog = request;
+    onReload();
+    try {
+      return await request;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Widget content(Widget Function(AssetCatalog?) builder) => ShellCatalogContent(
+    catalog: _catalog,
+    lastCatalog: _lastCatalog,
+    onRefresh: reload,
+    builder: builder,
+  );
+}
+
 class ShellCatalogContent extends StatelessWidget {
   const ShellCatalogContent({
     super.key,

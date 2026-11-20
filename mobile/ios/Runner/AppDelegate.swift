@@ -1,5 +1,6 @@
 import AVFoundation
 import Flutter
+import Photos
 import UIKit
 import UserNotifications
 
@@ -19,6 +20,31 @@ import UserNotifications
       binaryMessenger: engineBridge.applicationRegistrar.messenger()
     )
     channel.setMethodCallHandler { call, result in
+      if call.method == "status" {
+        Task { @MainActor in
+          let settings = await UNUserNotificationCenter.current().notificationSettings()
+          let notifications: String
+          switch settings.authorizationStatus {
+          case .authorized: notifications = "granted"
+          case .provisional, .ephemeral: notifications = "limited"
+          default: notifications = "denied"
+          }
+          let photos: String
+          switch PHPhotoLibrary.authorizationStatus(for: .readWrite) {
+          case .authorized: photos = "granted"
+          case .limited: photos = "limited"
+          case .notDetermined: photos = "notRequired"
+          default: photos = "denied"
+          }
+          result([
+            "notifications": notifications,
+            "camera": AVCaptureDevice.authorizationStatus(for: .video) == .authorized
+              ? "granted" : "denied",
+            "photos": photos
+          ])
+        }
+        return
+      }
       if call.method == "requestOnFirstLaunch" {
         Task { @MainActor in
           await Self.requestFirstLaunchPermissions()

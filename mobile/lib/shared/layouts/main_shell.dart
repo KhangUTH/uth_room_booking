@@ -112,36 +112,10 @@ class _MainShellState extends State<MainShell> {
   final _savedNotices = <int>{};
   ImageProvider? _avatar;
   bool _savingAvatar = false;
-  AssetCatalog? _lastCatalog;
-  Future<AssetCatalog?>? _catalogReload;
-  late Future<AssetCatalog>? _catalog = _loadCatalog();
-
-  Future<AssetCatalog>? _loadCatalog() =>
-      widget.loadCatalog?.call().then((catalog) => _lastCatalog = catalog);
-
-  Future<AssetCatalog?> _reloadCatalog() => _catalogReload ??=
-      _reloadCatalogOnce().whenComplete(() => _catalogReload = null);
-
-  Future<AssetCatalog?> _reloadCatalogOnce() async {
-    final request = _loadCatalog();
-    if (request == null) return null;
-    setState(() {
-      _catalog = request;
-    });
-    try {
-      return await request;
-    } catch (_) {
-      return null;
-    }
-  }
-
-  Widget _withCatalog(Widget Function(AssetCatalog?) builder) =>
-      ShellCatalogContent(
-        catalog: _catalog,
-        lastCatalog: _lastCatalog,
-        onRefresh: _reloadCatalog,
-        builder: builder,
-      );
+  late final _assetCatalog = ShellCatalogController(
+    load: () => widget.loadCatalog?.call(),
+    onReload: () => setState(() {}),
+  );
 
   @override
   void initState() {
@@ -394,16 +368,17 @@ class _MainShellState extends State<MainShell> {
                                 ? _workController.refresh
                                 : null,
                           ),
-                  _ShellTab.schedule => _withCatalog(
+                  _ShellTab.schedule => _assetCatalog.content(
                     (catalog) => ScheduleView(
                       bookings: _bookings,
+                      noticeAccountId: widget.id,
                       categoryRequest: _bookingCategoryRequest,
                       catalog: catalog,
-                      refreshCatalog: _reloadCatalog,
+                      refreshCatalog: _assetCatalog.reload,
                       active: _selectedTab == _ShellTab.schedule,
                     ),
                   ),
-                  _ShellTab.reports => _withCatalog(
+                  _ShellTab.reports => _assetCatalog.content(
                     (catalog) => IncidentReportView(
                       avatar: _avatar,
                       name: widget.name,
@@ -438,7 +413,17 @@ class _MainShellState extends State<MainShell> {
                   _ShellTab.profile => ProfileView(
                     id: widget.id,
                     role: widget.role,
-                    onSignOut: widget.onSignOut,
+                    onSignOut: widget.onSignOut == null
+                        ? null
+                        : () async {
+                            try {
+                              await widget.noticeStore?.unregisterPush();
+                            } catch (_) {
+                              // The server also checks that the session is active.
+                            }
+                            await widget.onSignOut!();
+                          },
+                    noticeStore: widget.noticeStore,
                     accountEmail: widget.accountEmail,
                     faculty: widget.faculty,
                     contactStore: widget.contactStore,
@@ -470,15 +455,15 @@ class _MainShellState extends State<MainShell> {
         onMaintenance: _openMaintenance,
       ),
       if (_showTechnicianAssets)
-        _withCatalog(
+        _assetCatalog.content(
           (catalog) => TechnicianAssetsPage(
             onAsset: (asset) => _openMaintenance(asset: asset),
             catalog: catalog,
-            onRefresh: widget.loadCatalog == null ? null : _reloadCatalog,
+            onRefresh: widget.loadCatalog == null ? null : _assetCatalog.reload,
           ),
         ),
       if (_showMaintenance)
-        _withCatalog(
+        _assetCatalog.content(
           (catalog) => MaintenanceProposalsPage(
             controller: _maintenance,
             initialAsset: _maintenanceAsset,

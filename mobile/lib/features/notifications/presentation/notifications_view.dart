@@ -3,13 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:uth_room_booking/theme/app_colors.dart';
 
 import '../../booking/data/booking_store.dart';
-import '../../booking/widgets/booking_history_card.dart';
 import '../../incident_report/data/incident_report_store.dart';
-import '../../incident_report/widgets/incident_report_details_sheet.dart';
 import '../data/notice_store.dart';
 import '../data/sample_notices.dart';
 import '../models/app_notice.dart';
 import '../widgets/notice_card.dart';
+import '../widgets/notice_details_sheet.dart';
 import '../widgets/notice_search_filters.dart';
 
 const _muted = Color(0xFF596577);
@@ -124,55 +123,28 @@ class _NotificationsViewState extends State<NotificationsView> {
     } else {
       _runAction(notice.id, () => store.markRead(notice.id));
     }
-    final incidentTitle = notice.incidentTitle;
-    final createdAt = store?.createdAt(notice.id);
+    final reportId = store?.incidentReportId(notice.id);
     final incidents = widget.incidentStore;
-    if (incidents != null && incidentTitle != null && createdAt != null) {
-      _openIncidentNotice(notice.id, incidents, incidentTitle, createdAt);
+    if (incidents != null && reportId != null) {
+      _openIncidentNotice(notice.id, incidents, reportId);
       return;
     }
     final bookingId = store?.bookingId(notice.id);
     final bookingDetails = bookingId == null
         ? null
         : widget.bookingStore?.bookingById(bookingId);
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      isScrollControlled: true,
-      useSafeArea: true,
-      builder: (context) => NoticeDetailsSheet(
-        notice: notice,
-        relatedDetails: bookingDetails == null
-            ? null
-            : FutureBuilder(
-                future: bookingDetails,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState != ConnectionState.done) {
-                    return const LinearProgressIndicator();
-                  }
-                  if (snapshot.hasError) {
-                    return const Text('Chưa tải được chi tiết đăng ký.');
-                  }
-                  final booking = snapshot.data;
-                  return booking == null
-                      ? const Text('Đăng ký này hiện không còn khả dụng.')
-                      : BookingHistoryCard(booking: booking);
-                },
-              ),
-      ),
-    );
+    showNoticeDetails(context, notice, bookingDetails);
   }
 
   Future<void> _openIncidentNotice(
     int noticeId,
     IncidentReportStore incidents,
-    String title,
-    String createdAt,
+    String reportId,
   ) async {
     setState(() => _openingIncidentId = noticeId);
     StoredIncidentReport? entry;
     try {
-      entry = await incidents.reportForNotice(title, createdBefore: createdAt);
+      entry = await incidents.reportById(reportId);
     } catch (_) {
       // The inbox can still be used when the report cannot be loaded.
     } finally {
@@ -192,23 +164,7 @@ class _NotificationsViewState extends State<NotificationsView> {
         );
       return;
     }
-    final evidence = report.hasPhoto
-        ? incidents.loadPhoto(report.id).catchError((Object _) => null)
-        : null;
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      isScrollControlled: true,
-      useSafeArea: true,
-      backgroundColor: Colors.white,
-      builder: (context) => IncidentReportDetailsSheet(
-        report: report.report,
-        status: report.status,
-        canCancel: false,
-        updatedAt: report.updatedAt,
-        evidence: evidence,
-      ),
-    );
+    showNoticeIncidentDetails(context, incidents, report);
   }
 
   void _toggleSaved(int id, bool saved) {

@@ -17,6 +17,10 @@ Khi mở rộng một màn hình, giữ điều phối luồng và trạng thái
 
 Menu chọn vị trí và lớp học phần nằm trong `incident_report/widgets/incident_inline_menu.dart`. Phần hiển thị danh sách lịch cá nhân và bộ lọc thông báo nằm trong `booking/widgets/my_bookings_section.dart` và `notifications/widgets/notice_search_filters.dart`. Hai màn hình tương ứng giữ trạng thái lọc và xử lý thao tác.
 
-Khung tải danh mục và nút thử lại nằm trong `lib/shared/layouts/shell_catalog_content.dart`. Phần vẽ vòng trang trí màn hình khởi động nằm trong `splash/widgets/splash_ring_painters.dart`.
+Trạng thái tải lại danh mục, dữ liệu đã tải và khung thử lại nằm trong `lib/shared/layouts/shell_catalog_content.dart`. `MainShell` dùng chung phần này cho các tab cần danh mục.
+
+Bảng chi tiết mở từ hộp thư nằm trong `notifications/widgets/notice_details_sheet.dart`. Các nút chọn loại sự cố và công tắc hỗ trợ trong giờ dạy nằm trong `incident_report/widgets/incident_report_controls.dart`. Hộp lưu ý khi mở Lịch nằm trong `booking/widgets/booking_hint.dart`.
+
+Phần vẽ vòng trang trí màn hình khởi động nằm trong `splash/widgets/splash_ring_painters.dart`.
 
 App chỉ hỗ trợ Sinh viên, Giảng viên, Nhân viên kỹ thuật. Vai trò thật phải lấy từ backend đã xác thực. Xem `docs/PROJECT_AUDIT.md` để biết phạm vi còn thiếu.

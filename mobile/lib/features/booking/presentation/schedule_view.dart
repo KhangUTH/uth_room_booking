@@ -26,6 +26,7 @@ class ScheduleView extends StatefulWidget {
     this.catalog,
     this.refreshCatalog,
     this.active = true,
+    this.noticeAccountId,
   });
 
   final BookingController bookings;
@@ -33,6 +34,7 @@ class ScheduleView extends StatefulWidget {
   final AssetCatalog? catalog;
   final Future<AssetCatalog?> Function()? refreshCatalog;
   final bool active;
+  final String? noticeAccountId;
 
   @override
   State<ScheduleView> createState() => _ScheduleViewState();
@@ -60,11 +62,35 @@ class _ScheduleViewState extends State<ScheduleView> {
       (_isMine ? _bookings.hasHistory : _slotsDay == _date);
   ({String message, bool failed})? _feedback;
   Timer? _feedbackTimer;
+  bool _checkingNotice = false;
 
   @override
   void initState() {
     super.initState();
     if (widget.active && _bookings.store != null) _refresh();
+    if (widget.active) _scheduleUsageNotice();
+  }
+
+  void _scheduleUsageNotice() {
+    final account = widget.noticeAccountId;
+    final role = _bookings.role;
+    if (account == null || role == UserRole.technician || _checkingNotice) {
+      return;
+    }
+    _checkingNotice = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      try {
+        if (!mounted) return;
+        await BookingUsageNotice.showOnce(
+          context,
+          role: role.name,
+          account: account,
+          isActive: () => widget.active,
+        );
+      } finally {
+        _checkingNotice = false;
+      }
+    });
   }
 
   @override
@@ -115,6 +141,7 @@ class _ScheduleViewState extends State<ScheduleView> {
   @override
   void didUpdateWidget(covariant ScheduleView oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (widget.active && !oldWidget.active) _scheduleUsageNotice();
     final request = widget.categoryRequest;
     final changedCategory =
         request != null && request != oldWidget.categoryRequest;

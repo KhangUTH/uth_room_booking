@@ -14,6 +14,7 @@ abstract final class AppRoute {
   static const rooms = '/rooms';
   static const equipment = '/equipment';
   static const notifications = '/notifications';
+  static const appPermissions = '/profile/permissions';
   static const technicianTask = '/technician/task';
   static const taskEvidence = '/technician/task/evidence';
 }

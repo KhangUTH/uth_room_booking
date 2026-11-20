@@ -10,12 +10,12 @@ import '../../equipment/data/sample_devices.dart';
 import '../../room/data/sample_rooms.dart';
 import '../models/incident_report.dart';
 import 'incident_inline_menu.dart';
+import 'incident_report_controls.dart';
 import 'incident_photo_picker.dart';
 import 'incident_photo_field.dart';
 import 'incident_report_labels.dart';
 import 'incident_reporter_card.dart';
 
-const _pale = Color(0xFFDCEFEF);
 const _line = Color(0xFFD6E6E7);
 const _muted = Color(0xFF526E74);
 
@@ -309,7 +309,14 @@ class _IncidentReportFormState extends State<IncidentReportForm> {
                   for (final type in _IncidentType.values) ...[
                     if (type != _IncidentType.values.first)
                       const SizedBox(width: 8),
-                    Expanded(child: _buildType(type)),
+                    Expanded(
+                      child: IncidentTypeOption(
+                        selected: _type == type,
+                        icon: type.icon,
+                        label: type.label,
+                        onPressed: () => _selectType(type),
+                      ),
+                    ),
                   ],
                 ],
               ),
@@ -350,7 +357,11 @@ class _IncidentReportFormState extends State<IncidentReportForm> {
               ),
               if (_isTeachingRoom) ...[
                 const SizedBox(height: 16),
-                _buildTeachingSupport(),
+                IncidentTeachingSupportSwitch(
+                  enabled: _needsTeachingSupport,
+                  onChanged: (value) =>
+                      setState(() => _needsTeachingSupport = value),
+                ),
               ],
               const SizedBox(height: 16),
               FilledButton.icon(
@@ -382,78 +393,15 @@ class _IncidentReportFormState extends State<IncidentReportForm> {
     );
   }
 
-  Widget _buildTeachingSupport() {
-    return Material(
-      color: _needsTeachingSupport ? const Color(0xFFFFF4F6) : Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-          color: _needsTeachingSupport ? const Color(0xFFEBC2CC) : _line,
-        ),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: SwitchListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-        title: const Text(
-          'Cần hỗ trợ ngay trong giờ dạy',
-          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-        ),
-        subtitle: const Text(
-          'Dùng khi sự cố đang ảnh hưởng đến buổi học.',
-          style: TextStyle(color: _muted, fontSize: 11),
-        ),
-        activeThumbColor: Colors.white,
-        activeTrackColor: AppColors.primary,
-        value: _needsTeachingSupport,
-        onChanged: (value) => setState(() => _needsTeachingSupport = value),
-      ),
-    );
-  }
-
-  Widget _buildType(_IncidentType type) {
-    final selected = _type == type;
-    return Semantics(
-      selected: selected,
-      child: OutlinedButton(
-        onPressed: () {
-          if (selected) return;
-          setState(() {
-            _type = type;
-            _asset = null;
-            _assetMenuOpen = false;
-            _courseMenuOpen = false;
-            _course = '';
-            _needsTeachingSupport = false;
-          });
-        },
-        style: OutlinedButton.styleFrom(
-          backgroundColor: selected ? AppColors.primary : Colors.white,
-          foregroundColor: selected ? Colors.white : Colors.black87,
-          side: BorderSide(color: selected ? AppColors.primary : _line),
-          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
-        ),
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: selected ? Colors.white24 : _pale,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(
-                type.icon,
-                size: 19,
-                color: selected ? Colors.white : AppColors.primary,
-              ),
-            ),
-            const SizedBox(height: 5),
-            Text(type.label, textAlign: TextAlign.center),
-          ],
-        ),
-      ),
-    );
+  void _selectType(_IncidentType type) {
+    if (_type == type) return;
+    setState(() {
+      _type = type;
+      _asset = null;
+      _assetMenuOpen = false;
+      _courseMenuOpen = false;
+      _course = '';
+      _needsTeachingSupport = false;
+    });
   }
 }

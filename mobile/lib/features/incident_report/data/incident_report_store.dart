@@ -60,19 +60,15 @@ class IncidentReportStore {
     return rows.map(_decode).toList();
   }
 
-  Future<StoredIncidentReport?> reportForNotice(
-    String title, {
-    required String createdBefore,
-  }) async {
-    final rows = await _client
+  Future<StoredIncidentReport?> reportById(String id) async {
+    final row = await _client
         .from('incident_reports')
         .select(_fields)
         .eq('reporter_id', _userId)
-        .eq('title', title)
-        .lte('created_at', createdBefore)
-        .limit(2)
+        .eq('id', id)
+        .maybeSingle()
         .timeout(_timeout);
-    return rows.length == 1 ? _decode(rows.single) : null;
+    return row == null ? null : _decode(row);
   }
 
   Future<StoredIncidentReport> submit(

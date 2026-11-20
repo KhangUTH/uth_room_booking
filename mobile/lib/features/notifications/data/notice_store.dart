@@ -1,18 +1,27 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/platform/app_permissions.dart';
 import '../models/app_notice.dart';
 
 class NoticeStore extends ChangeNotifier {
-  NoticeStore(this._client);
+  NoticeStore(this._client, {this.pushPreferenceKey});
 
   final SupabaseClient _client;
+  final String? pushPreferenceKey;
+  Future<void>? _restoringPush;
+  static bool get supportsPush =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+  static String pushKey(String role, String account) =>
+      'push_notifications.$role.$account';
   final read = <int>{};
   final saved = <int>{};
   final _bookingIds = <int, String>{};
-  final _createdAt = <int, String>{};
+  final _incidentReportIds = <int, String>{};
   List<AppNotice> notices = [];
   Timer? _timer;
   Future<void>? _refreshing;
@@ -22,6 +31,7 @@ class NoticeStore extends ChangeNotifier {
   int _revision = 0;
 
   void start() {
+    _restoringPush = _restorePush();
     unawaited(refresh());
     _timer = Timer.periodic(
       const Duration(seconds: 30),
@@ -29,9 +39,58 @@ class NoticeStore extends ChangeNotifier {
     );
   }
 
+  Future<void> _restorePush() async {
+    final key = pushPreferenceKey;
+    if (!supportsPush || key == null) return;
+    try {
+      if (await SharedPreferencesAsync().getBool(key) == true && !_disposed) {
+        await _registerPush();
+      }
+    } catch (_) {
+      // The inbox remains available when Android or FCM is unavailable.
+    }
+  }
+
+  Future<bool> _registerPush() async {
+    final permissions = await AppPermissions.readStatuses();
+    if (permissions['notifications'] != 'granted') return false;
+    final token = await AppPermissions.androidPushToken().timeout(
+      const Duration(seconds: 10),
+    );
+    if (_disposed || token == null || token.isEmpty) return false;
+    await _client
+        .rpc<void>(
+          'set_mobile_notification_token',
+          params: {'device_token': token},
+        )
+        .timeout(const Duration(seconds: 10));
+    return true;
+  }
+
+  Future<bool> setPushEnabled(bool enabled) async {
+    await _restoringPush;
+    if (!supportsPush || _disposed) return false;
+    if (enabled) return _registerPush();
+    await unregisterPush();
+    return true;
+  }
+
+  Future<void> unregisterPush() async {
+    if (!supportsPush) return;
+    await _restoringPush;
+    final session = _client.auth.currentSession;
+    if (session == null) return;
+    await _client
+        .rpc<void>(
+          'set_mobile_notification_token',
+          params: {'device_token': null},
+        )
+        .timeout(const Duration(seconds: 5));
+  }
+
   String? bookingId(int noticeId) => _bookingIds[noticeId];
 
-  String? createdAt(int noticeId) => _createdAt[noticeId];
+  String? incidentReportId(int noticeId) => _incidentReportIds[noticeId];
 
   Future<void> refresh() => _refreshing ??= _load().whenComplete(() {
     _refreshing = null;
@@ -42,7 +101,9 @@ class NoticeStore extends ChangeNotifier {
     try {
       final rows = await _client
           .from('app_notifications')
-          .select('id,booking_id,title,message,created_at,is_read,is_saved')
+          .select(
+            'id,booking_id,incident_report_id,title,message,created_at,is_read,is_saved',
+          )
           .order('id', ascending: false)
           .timeout(const Duration(seconds: 10));
       if (_disposed || revision != _revision) return;
@@ -58,12 +119,14 @@ class NoticeStore extends ChangeNotifier {
           ),
       ];
       _bookingIds.clear();
-      _createdAt.clear();
+      _incidentReportIds.clear();
       read.clear();
       saved.clear();
       for (final row in rows) {
         final id = row['id'] as int;
-        _createdAt[id] = row['created_at'] as String;
+        if (row['incident_report_id'] case final String reportId) {
+          _incidentReportIds[id] = reportId;
+        }
         if (row['booking_id'] case final String bookingId) {
           _bookingIds[id] = bookingId;
         }
@@ -111,7 +174,7 @@ class NoticeStore extends ChangeNotifier {
     read.removeAll(ids);
     saved.removeAll(ids);
     _bookingIds.removeWhere((id, _) => ids.contains(id));
-    _createdAt.removeWhere((id, _) => ids.contains(id));
+    _incidentReportIds.removeWhere((id, _) => ids.contains(id));
     notifyListeners();
   }
 
