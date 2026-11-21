@@ -16,6 +16,7 @@ class AcademicLoginForm extends StatefulWidget {
     this.submitting = false,
     this.credentialsError,
     this.onCredentialsChanged,
+    this.onForgotPassword,
   });
 
   final GlobalKey<FormState> formKey;
@@ -28,6 +29,7 @@ class AcademicLoginForm extends StatefulWidget {
   final bool submitting;
   final String? credentialsError;
   final VoidCallback? onCredentialsChanged;
+  final VoidCallback? onForgotPassword;
 
   @override
   State<AcademicLoginForm> createState() => _AcademicLoginFormState();
@@ -121,6 +123,7 @@ class _AcademicLoginFormState extends State<AcademicLoginForm> {
             ),
           const SizedBox(height: 12),
           LoginPasswordOptions(
+            onForgotPassword: widget.onForgotPassword,
             keepSignedIn: widget.keepSignedIn,
             onKeepSignedInChanged: widget.submitting
                 ? null

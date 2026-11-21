@@ -8,6 +8,57 @@ import '../../../core/router/app_route.dart';
 import '../models/user_role.dart';
 import 'remembered_session_storage.dart';
 
+/// Uses a separate in-memory Auth client so OTP verification cannot open Home.
+class PasswordRecovery {
+  PasswordRecovery(SupabaseClient client, {http.Client? httpClient})
+    : _auth = GoTrueClient(
+        url: client.rest.url.replaceFirst(RegExp(r'/rest/v1/?$'), '/auth/v1'),
+        headers: {
+          'apikey': client.auth.headers['apikey']!,
+          'Authorization': 'Bearer ${client.auth.headers['apikey']!}',
+        },
+        autoRefreshToken: false,
+        httpClient: httpClient,
+        flowType: AuthFlowType.implicit,
+      );
+
+  final GoTrueClient _auth;
+  static const _timeout = Duration(seconds: 15);
+
+  Future<void> sendCode(String email) =>
+      _auth.resetPasswordForEmail(email).timeout(_timeout);
+
+  Future<void> verifyCode(String email, String code) async {
+    final response = await _auth
+        .verifyOTP(email: email, token: code, type: OtpType.recovery)
+        .timeout(_timeout);
+    if (response.session == null) {
+      throw const AuthException('Missing recovery session');
+    }
+  }
+
+  Future<void> updatePassword(String password) async {
+    if (_auth.currentSession == null) {
+      throw StateError('Missing recovery session');
+    }
+    await _auth
+        .updateUser(UserAttributes(password: password))
+        .timeout(_timeout);
+  }
+
+  Future<void> close() async {
+    try {
+      if (_auth.currentSession != null) {
+        await _auth.signOut(scope: SignOutScope.local).timeout(_timeout);
+      }
+    } catch (_) {
+      // The isolated session is discarded when the dialog closes.
+    } finally {
+      _auth.dispose();
+    }
+  }
+}
+
 Future<void> signOutFromApp(
   SupabaseClient client, {
   RememberedSessionStorage? sessionStorage,
