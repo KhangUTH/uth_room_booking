@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 
 import 'package:uth_room_booking/theme/app_colors.dart';
 
+import '../../../core/router/app_route.dart';
+
 import '../../booking/data/booking_store.dart';
 import '../../incident_report/data/incident_report_store.dart';
+import '../../technician/data/technician_incident_store.dart';
 import '../data/notice_store.dart';
 import '../data/sample_notices.dart';
 import '../models/app_notice.dart';
@@ -22,6 +25,8 @@ class NotificationsView extends StatefulWidget {
     this.store,
     this.bookingStore,
     this.incidentStore,
+    this.technicianStore,
+    this.initialNoticeId,
   });
 
   final List<AppNotice> notices;
@@ -31,6 +36,8 @@ class NotificationsView extends StatefulWidget {
   final NoticeStore? store;
   final BookingStore? bookingStore;
   final IncidentReportStore? incidentStore;
+  final TechnicianIncidentStore? technicianStore;
+  final int? initialNoticeId;
 
   @override
   State<NotificationsView> createState() => _NotificationsViewState();
@@ -44,6 +51,25 @@ class _NotificationsViewState extends State<NotificationsView> {
   bool _deleting = false;
   bool _deleteFailed = false;
   int? _openingIncidentId;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialNoticeId case final id?) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _openInitialNotice(id),
+      );
+    }
+  }
+
+  Future<void> _openInitialNotice(int id) async {
+    final store = widget.store;
+    if (store == null || !mounted) return;
+    await store.refresh();
+    if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
+    final notice = store.notices.where((notice) => notice.id == id).firstOrNull;
+    if (notice != null) _openNotice(notice);
+  }
 
   void _toggleSelection(int id) {
     if (_deleting || _pending.contains(id)) return;
@@ -129,11 +155,41 @@ class _NotificationsViewState extends State<NotificationsView> {
       _openIncidentNotice(notice.id, incidents, reportId);
       return;
     }
+    if (widget.technicianStore case final technician? when reportId != null) {
+      _openTechnicianNotice(notice, technician, reportId);
+      return;
+    }
     final bookingId = store?.bookingId(notice.id);
     final bookingDetails = bookingId == null
         ? null
         : widget.bookingStore?.bookingById(bookingId);
     showNoticeDetails(context, notice, bookingDetails);
+  }
+
+  Future<void> _openTechnicianNotice(
+    AppNotice notice,
+    TechnicianIncidentStore store,
+    String reportId,
+  ) async {
+    setState(() => _openingIncidentId = notice.id);
+    try {
+      final task = await store.jobById(reportId);
+      if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
+      if (task == null) {
+        showNoticeDetails(context, notice, null);
+        return;
+      }
+      Navigator.of(context).pushNamed<void>(
+        AppRoute.technicianTask,
+        arguments: (task: task, onChanged: () {}),
+      );
+    } catch (_) {
+      if (mounted && ModalRoute.of(context)?.isCurrent == true) {
+        showNoticeDetails(context, notice, null);
+      }
+    } finally {
+      if (mounted) setState(() => _openingIncidentId = null);
+    }
   }
 
   Future<void> _openIncidentNotice(

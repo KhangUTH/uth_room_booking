@@ -98,6 +98,8 @@ abstract final class AppRouter {
           store: args.store,
           bookingStore: args.bookingStore,
           incidentStore: args.incidentStore,
+          technicianStore: args.technicianStore,
+          initialNoticeId: args.initialNoticeId,
         ),
       (AppRoute.technicianTask, TechnicianTaskRouteArgs args) =>
         TaskDetailsPage(task: args.task, onChanged: args.onChanged),

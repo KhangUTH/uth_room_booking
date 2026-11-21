@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 
@@ -52,36 +54,73 @@ class _IncidentReportViewState extends State<IncidentReportView> {
   String? _historyMessage;
   bool _loadingHistory = false;
   int _historyRequest = 0;
+  Timer? _historyTimer;
+  final _openReport = ValueNotifier<StoredIncidentReport?>(null);
+
+  void _syncHistoryTimer() {
+    _historyTimer?.cancel();
+    _historyTimer = null;
+    if (!widget.active || !_showHistory || widget.store == null) return;
+    _historyTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed ||
+          _loadingHistory) {
+        return;
+      }
+      unawaited(_refreshHistory(silent: true));
+    });
+  }
+
+  @override
+  void dispose() {
+    _historyTimer?.cancel();
+    _openReport.dispose();
+    super.dispose();
+  }
 
   @override
   void didUpdateWidget(covariant IncidentReportView oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.active && !oldWidget.active && _showHistory) _refreshHistory();
+    if (widget.active != oldWidget.active || widget.store != oldWidget.store) {
+      _syncHistoryTimer();
+      if (widget.active && _showHistory) _refreshHistory();
+    }
   }
 
-  Future<void> _refreshHistory() async {
+  Future<void> _refreshHistory({bool silent = false}) async {
     final store = widget.store;
     if (store == null) return;
     final request = ++_historyRequest;
-    setState(() {
+    if (silent) {
       _loadingHistory = true;
-      _historyMessage = null;
-    });
+    } else {
+      setState(() {
+        _loadingHistory = true;
+        _historyMessage = null;
+      });
+    }
     try {
       final reports = await store.history();
       if (!mounted || request != _historyRequest) return;
       setState(() {
+        _historyMessage = null;
         _reports
           ..clear()
           ..addEntries(reports.map((item) => MapEntry(item.report.id, item)));
       });
+      if (_openReport.value case final open?) {
+        _openReport.value = _reports[open.report.id] ?? open;
+      }
     } catch (_) {
-      if (mounted && request == _historyRequest) {
+      if (!silent && mounted && request == _historyRequest) {
         setState(() => _historyMessage = 'Không tải được báo cáo. Thử lại.');
       }
     } finally {
       if (mounted && request == _historyRequest) {
-        setState(() => _loadingHistory = false);
+        if (silent) {
+          _loadingHistory = false;
+        } else {
+          setState(() => _loadingHistory = false);
+        }
       }
     }
   }
@@ -140,6 +179,7 @@ class _IncidentReportViewState extends State<IncidentReportView> {
         _remember(saved);
         _showHistory = true;
       });
+      _syncHistoryTimer();
       if (widget.active) _showReport(saved.report);
       _refreshHistory();
       return true;
@@ -164,6 +204,7 @@ class _IncidentReportViewState extends State<IncidentReportView> {
             if (_showHistory == showHistory) return;
             FocusScope.of(context).unfocus();
             setState(() => _showHistory = showHistory);
+            _syncHistoryTimer();
             if (showHistory) _refreshHistory();
           },
         ),
@@ -225,22 +266,28 @@ class _IncidentReportViewState extends State<IncidentReportView> {
     final evidence = saved?.hasPhoto == true
         ? store?.loadPhoto(saved!.id).catchError((Object _) => null)
         : null;
+    _openReport.value = saved;
     final shouldCancel = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
       showDragHandle: true,
       backgroundColor: Colors.white,
-      builder: (_) => IncidentReportDetailsSheet(
-        report: report,
-        status: progress.status,
-        canCancel:
-            saved?.canCancel ?? progress.status == IncidentStatus.pending,
-        updatedAt: progress.updatedAt,
-        evidence: evidence,
+      builder: (_) => ValueListenableBuilder(
+        valueListenable: _openReport,
+        builder: (_, current, _) => IncidentReportDetailsSheet(
+          report: report,
+          status: current?.status ?? progress.status,
+          canCancel:
+              current?.canCancel ?? progress.status == IncidentStatus.pending,
+          updatedAt: current?.updatedAt ?? progress.updatedAt,
+          evidence: evidence,
+        ),
       ),
     );
-    if (!mounted || shouldCancel != true) return;
+    if (!mounted) return;
+    _openReport.value = null;
+    if (shouldCancel != true) return;
     if (store == null) {
       setState(() => widget.queue.cancel(_owner, report));
       return;

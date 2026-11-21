@@ -19,11 +19,13 @@ class TechnicianTask {
   final String description;
   final String reporter;
   final DateTime? scheduledAt;
+  final DateTime? createdAt;
   final bool isUrgent;
   final bool isMaintenance;
   final List<Uint8List> evidence;
   final Future<List<Uint8List>> Function()? loadEvidence;
   final Future<TaskStatus> Function(TaskStatus)? onAdvance;
+  final Future<TaskStatus?> Function()? loadStatus;
   bool _advancing = false;
   TaskStatus _status;
   DateTime? _statusUpdatedAt;
@@ -37,13 +39,26 @@ class TechnicianTask {
     required this.description,
     required this.reporter,
     required this.scheduledAt,
+    this.createdAt,
     this.isUrgent = false,
     this.isMaintenance = false,
     this.evidence = const [],
     this.loadEvidence,
     this.onAdvance,
+    this.loadStatus,
     this._status = TaskStatus.pending,
   });
+
+  Future<bool> refreshStatus() async {
+    final load = loadStatus;
+    if (load == null || _advancing) return true;
+    final previous = _status;
+    final current = await load();
+    if (_advancing || _status != previous) return true;
+    if (current == null) return false;
+    _status = current;
+    return true;
+  }
 
   Future<bool> advance() async {
     if (_advancing) return false;

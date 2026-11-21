@@ -299,6 +299,40 @@ void main() {
   });
 
   group('Splash', () {
+    testWidgets('logo và hình trường nằm gọn khi đổi kích thước màn hình', (
+      tester,
+    ) async {
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      const screen = MaterialApp(home: SplashScreen());
+      Finder artwork(String path) => find.byWidgetPredicate(
+        (widget) =>
+            widget is Image &&
+            widget.image is AssetImage &&
+            (widget.image as AssetImage).assetName.endsWith(path),
+      );
+      for (final size in const [
+        Size(320, 568),
+        Size(568, 320),
+        Size(800, 1280),
+        Size(1280, 800),
+      ]) {
+        await tester.binding.setSurfaceSize(size);
+        await tester.pumpWidget(screen);
+        final logo = tester.getRect(artwork('logo.jpg'));
+        final school = tester.getRect(artwork('splash_school.jpg'));
+        final bounds = Offset.zero & size;
+        for (final rect in [logo, school]) {
+          expect(rect.left, greaterThanOrEqualTo(bounds.left));
+          expect(rect.top, greaterThanOrEqualTo(bounds.top));
+          expect(rect.right, lessThanOrEqualTo(bounds.right));
+          expect(rect.bottom, lessThanOrEqualTo(bounds.bottom));
+        }
+        expect(logo.overlaps(school), isFalse);
+        expect(tester.takeException(), isNull);
+      }
+      await unmountApp(tester);
+    });
+
     testWidgets('mở đúng Trang chủ khi khôi phục được hồ sơ', (tester) async {
       await useMobileScreen(tester);
       await tester.pumpWidget(

@@ -29,14 +29,17 @@ class NoticeStore extends ChangeNotifier {
   bool loading = true;
   bool loadFailed = false;
   int _revision = 0;
+  bool _pushEnabled = false;
+  int? _latestNoticeId;
 
   void start() {
     _restoringPush = _restorePush();
     unawaited(refresh());
-    _timer = Timer.periodic(
-      const Duration(seconds: 30),
-      (_) => unawaited(refresh()),
-    );
+    _timer = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) {
+        unawaited(refresh());
+      }
+    });
   }
 
   Future<void> _restorePush() async {
@@ -64,6 +67,7 @@ class NoticeStore extends ChangeNotifier {
           params: {'device_token': token},
         )
         .timeout(const Duration(seconds: 10));
+    if (!_disposed) _pushEnabled = true;
     return true;
   }
 
@@ -78,6 +82,7 @@ class NoticeStore extends ChangeNotifier {
   Future<void> unregisterPush() async {
     if (!supportsPush) return;
     await _restoringPush;
+    _pushEnabled = false;
     final session = _client.auth.currentSession;
     if (session == null) return;
     await _client
@@ -132,6 +137,25 @@ class NoticeStore extends ChangeNotifier {
         }
         if (row['is_read'] == true) read.add(id);
         if (row['is_saved'] == true) saved.add(id);
+      }
+      final previousId = _latestNoticeId;
+      final newestId = notices.firstOrNull?.id ?? 0;
+      if (previousId == null || newestId > previousId) {
+        _latestNoticeId = newestId;
+      }
+      if (_pushEnabled &&
+          previousId != null &&
+          WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) {
+        for (final notice in notices.reversed) {
+          if (notice.id <= previousId || read.contains(notice.id)) continue;
+          unawaited(
+            AppPermissions.showForegroundNotification(
+              id: notice.id,
+              title: notice.title,
+              body: notice.message,
+            ),
+          );
+        }
       }
       loadFailed = false;
     } catch (_) {

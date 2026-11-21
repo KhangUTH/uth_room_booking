@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -29,6 +30,42 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
   TechnicianTask get task => widget.task;
 
   late final _evidence = task.loadEvidence?.call();
+  Timer? _timer;
+  bool _refreshing = false;
+  bool _available = true;
+
+  @override
+  void initState() {
+    super.initState();
+    if (task.loadStatus != null) {
+      _timer = Timer.periodic(const Duration(seconds: 5), (_) => _refresh());
+    }
+  }
+
+  Future<void> _refresh() async {
+    if (_refreshing ||
+        WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
+      return;
+    }
+    _refreshing = true;
+    final previous = task.status;
+    try {
+      final available = await task.refreshStatus();
+      if (mounted && (available != _available || task.status != previous)) {
+        setState(() => _available = available);
+      }
+    } catch (_) {
+      // Keep the current task while the connection is unavailable.
+    } finally {
+      _refreshing = false;
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
 
   Future<void> _advance() async {
     final accepting = task.status == TaskStatus.pending;
@@ -122,6 +159,7 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
             ),
             const SizedBox(height: 12),
             TechnicianTaskOverview(task: task),
+            if (!_available) const Text('Công việc không còn khả dụng.'),
             const SizedBox(height: 12),
             _TaskDetailsSection(
               icon: Icons.description_outlined,
@@ -137,7 +175,7 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
           ],
         ),
       ),
-      bottomNavigationBar: task.status == TaskStatus.completed
+      bottomNavigationBar: !_available || task.status == TaskStatus.completed
           ? null
           : SafeArea(
               top: false,

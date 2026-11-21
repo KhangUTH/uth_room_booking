@@ -49,6 +49,7 @@ class DemoIncidentQueue {
       reporter: report.course.isEmpty
           ? reporter
           : '$reporter · ${report.course}',
+      createdAt: submitted,
       scheduledAt: urgent
           ? DateTime(submitted.year, submitted.month, submitted.day, 23, 59)
           : null,

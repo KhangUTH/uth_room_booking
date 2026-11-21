@@ -1,6 +1,7 @@
 import "package:flutter/material.dart";
 
 import 'package:uth_room_booking/core/router/app_route.dart';
+import 'package:uth_room_booking/core/platform/app_permissions.dart';
 import "package:uth_room_booking/features/room/data/sample_rooms.dart";
 import "package:uth_room_booking/shared/layouts/bottom_navigation_bar.dart";
 import "package:uth_room_booking/shared/layouts/header.dart";
@@ -126,17 +127,33 @@ class _MainShellState extends State<MainShell> {
     if (_isTechnician) {
       _workController
         ..addListener(_workChanged)
-        ..refresh();
+        ..start();
     }
     widget.noticeStore
       ?..addListener(_noticeChanged)
       ..start();
+    if (widget.noticeStore != null && NoticeStore.supportsPush) {
+      AppPermissions.onNoticeTap(_handleNoticeTap);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _handleNoticeTap();
+      });
+    }
+  }
+
+  Future<void> _handleNoticeTap() async {
+    final noticeId = await AppPermissions.takeNoticeId();
+    if (mounted && noticeId != null) {
+      await _openNotifications(noticeId: noticeId);
+    }
   }
 
   void _noticeChanged() => setState(() {});
 
   @override
   void dispose() {
+    if (widget.noticeStore != null && NoticeStore.supportsPush) {
+      AppPermissions.onNoticeTap(null);
+    }
     if (_isTechnician) {
       _workController
         ..removeListener(_workChanged)
@@ -238,7 +255,7 @@ class _MainShellState extends State<MainShell> {
     });
   }
 
-  Future<void> _openNotifications() async {
+  Future<void> _openNotifications({int? noticeId}) async {
     FocusManager.instance.primaryFocus?.unfocus();
     final store = widget.noticeStore;
     store?.refresh();
@@ -251,6 +268,8 @@ class _MainShellState extends State<MainShell> {
         store: store,
         bookingStore: widget.bookingStore,
         incidentStore: _isTechnician ? null : widget.incidentStore,
+        technicianStore: widget.technicianIncidentStore,
+        initialNoticeId: noticeId,
       ),
     );
     if (mounted && store == null) setState(() {});
@@ -298,7 +317,7 @@ class _MainShellState extends State<MainShell> {
     final selectedIndex = tabs.indexOf(_selectedTab);
     final canGoBackWithinShell =
         _selectedTab != _ShellTab.home || _assetsVisible || _maintenanceVisible;
-    return PopScope<void>(
+    final shell = PopScope<void>(
       canPop: !canGoBackWithinShell,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop && canGoBackWithinShell) _backWithinShell();
@@ -436,6 +455,15 @@ class _MainShellState extends State<MainShell> {
           items: [for (final tab in tabs) tab.item],
           currentIndex: selectedIndex,
           onTap: (index) => _selectTab(tabs[index]),
+        ),
+      ),
+    );
+    return ColoredBox(
+      color: AppColors.background,
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 840),
+          child: shell,
         ),
       ),
     );

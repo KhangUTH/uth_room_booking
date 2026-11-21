@@ -9,8 +9,38 @@ abstract final class AppPermissions {
 
   static Future<bool> openSettings() => _invoke('open');
 
+  static void onNoticeTap(Future<void> Function()? callback) {
+    _channel.setMethodCallHandler(
+      callback == null
+          ? null
+          : (call) async {
+              if (call.method == 'noticeTapped') await callback();
+            },
+    );
+  }
+
+  static Future<int?> takeNoticeId() async {
+    try {
+      return await _channel.invokeMethod<int>('takeNoticeId');
+    } on PlatformException {
+      return null;
+    } on MissingPluginException {
+      return null;
+    }
+  }
+
   static Future<String?> androidPushToken() =>
       _channel.invokeMethod<String>('pushToken');
+
+  static Future<bool> showForegroundNotification({
+    required int id,
+    required String title,
+    required String body,
+  }) => _invoke('showForegroundNotification', {
+    'id': id,
+    'title': title,
+    'body': body,
+  });
 
   static Future<Map<String, String>> readStatuses() async {
     try {
@@ -23,9 +53,9 @@ abstract final class AppPermissions {
     }
   }
 
-  static Future<bool> _invoke(String method) async {
+  static Future<bool> _invoke(String method, [Object? arguments]) async {
     try {
-      return await _channel.invokeMethod<bool>(method) ?? false;
+      return await _channel.invokeMethod<bool>(method, arguments) ?? false;
     } on PlatformException {
       return false;
     } on MissingPluginException {

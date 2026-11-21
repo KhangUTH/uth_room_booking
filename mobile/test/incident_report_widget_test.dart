@@ -13,6 +13,7 @@ import 'package:uth_room_booking/features/auth/models/user_role.dart';
 import 'package:uth_room_booking/features/booking/models/booking.dart';
 import 'package:uth_room_booking/features/incident_report/data/incident_report_store.dart';
 import 'package:uth_room_booking/features/incident_report/models/incident_report.dart';
+import 'package:uth_room_booking/features/incident_report/widgets/incident_report_details_sheet.dart';
 import 'package:uth_room_booking/features/technician/data/demo_incident_queue.dart';
 import 'package:uth_room_booking/features/technician/widgets/technician_task_card.dart';
 import 'package:uth_room_booking/shared/layouts/main_shell.dart';
@@ -265,6 +266,27 @@ void main() {
     expect(find.text('Hủy báo cáo'), findsNothing);
     expect(find.text('Thời gian gửi báo cáo'), findsOneWidget);
     expect(store.stored?.report.description, 'Màn hình đen sau khi khởi động');
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    final saved = store.stored!;
+    for (final status in [
+      IncidentStatus.inProgress,
+      IncidentStatus.completed,
+    ]) {
+      store.stored = (
+        id: saved.id,
+        report: saved.report,
+        status: status,
+        updatedAt: saved.report.submittedAt,
+        hasPhoto: saved.hasPhoto,
+        canCancel: false,
+      );
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpAndSettle();
+      final sheet = tester.widget<IncidentReportDetailsSheet>(
+        find.byType(IncidentReportDetailsSheet),
+      );
+      expect(sheet.status, status);
+    }
     await unmountApp(tester);
   });
 

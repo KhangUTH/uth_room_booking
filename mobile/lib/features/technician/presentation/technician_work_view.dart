@@ -36,9 +36,18 @@ class TechnicianWorkView extends StatelessWidget {
   Widget build(BuildContext context) {
     final now = DateTime.now();
     final matchingJobs = jobs.where((task) => filter?.matches(task) ?? true);
+    final datedJobs = filter == null
+        ? (matchingJobs.where((task) => task.createdAt != null).toList()..sort(
+            (first, second) => second.createdAt!.compareTo(first.createdAt!),
+          ))
+        : const <TechnicianTask>[];
+    final remaining = filter == null
+        ? matchingJobs.where((task) => task.createdAt == null)
+        : matchingJobs;
     final visible = [
-      ...matchingJobs.where(TaskFilter.urgent.matches),
-      ...matchingJobs.where((task) => !TaskFilter.urgent.matches(task)),
+      ...datedJobs,
+      ...remaining.where(TaskFilter.urgent.matches),
+      ...remaining.where((task) => !TaskFilter.urgent.matches(task)),
     ];
     final list = ListView(
       physics: const AlwaysScrollableScrollPhysics(),
