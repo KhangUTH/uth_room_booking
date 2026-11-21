@@ -4,7 +4,7 @@ UTH Lab là ứng dụng Flutter để đăng ký sử dụng phòng máy và th
 
 ## Cấu trúc repo
 
-- [`mobile/`](mobile/) chứa mã Flutter, cấu hình Android và iOS, tài nguyên và kiểm thử.
+- Ứng dụng Flutter nằm ở thư mục gốc, với mã nguồn trong [`lib/`](lib/), cấu hình trong [`android/`](android/) và [`ios/`](ios/), tài nguyên trong [`assets/`](assets/) và kiểm thử trong [`test/`](test/).
 - [`supabase/`](supabase/README.md) chứa cơ sở dữ liệu, migrations và Edge Functions dùng chung.
 - [`web/`](web/README.md) dành cho web quản trị React. Luồng duyệt đăng ký trên web chưa được triển khai.
 
@@ -13,7 +13,6 @@ UTH Lab là ứng dụng Flutter để đăng ký sử dụng phòng máy và th
 Cài Flutter SDK và Android SDK, sau đó kết nối điện thoại Android hoặc mở trình giả lập. Từ thư mục gốc của repo, chạy:
 
 ```powershell
-cd mobile
 flutter pub get
 flutter run --profile
 ```
@@ -40,7 +39,7 @@ Hàm `send-mobile-push` gửi qua FCM bằng secret `FCM_SERVICE_ACCOUNT_JSON` t
 
 Để dùng project Supabase khác, truyền `--dart-define=SUPABASE_URL=...` và `--dart-define=SUPABASE_PUBLISHABLE_KEY=...` khi chạy hoặc build. Project đích cần triển khai `sign-in-by-code` để đăng nhập bằng mã.
 
-Chạy từ thư mục `mobile/`:
+Chạy từ thư mục gốc của repo:
 
 ```powershell
 flutter analyze
@@ -48,4 +47,4 @@ flutter test
 flutter build apk --debug
 ```
 
-Xem thêm [cách tổ chức mã Flutter](mobile/lib/features/README.md) và [tài liệu backend](supabase/README.md).
+Xem thêm [cách tổ chức mã Flutter](lib/features/README.md) và [tài liệu backend](supabase/README.md).
