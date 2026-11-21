@@ -6,7 +6,7 @@ UTH Lab là ứng dụng Flutter để đăng ký sử dụng phòng máy và th
 
 - [`mobile/`](mobile/) chứa mã Flutter, cấu hình Android và iOS, tài nguyên và kiểm thử.
 - [`supabase/`](supabase/README.md) chứa cơ sở dữ liệu, migrations và Edge Functions dùng chung.
-- [`web/`](web/README.md) dành cho web quản trị React. Luồng duyệt đăng ký trên web chưa được triển khai.
+- [`web/`](web/README.md) chứa web quản trị React, bao gồm duyệt đăng ký phòng và thiết bị.
 
 ## Chạy ứng dụng
 

@@ -56,6 +56,12 @@ trên thông báo của mình. App làm mới hộp thông báo khi mở và m�
 Migration `allow_users_to_delete_own_in_app_notifications` cho phép xóa
 theo nhóm ID trong hộp thông báo của chính tài khoản.
 
+Migration [`connect_admin_booking_review`](migrations/20261121120000_connect_admin_booking_review.sql)
+cấp cho admin đang hoạt động quyền xem và duyệt hoặc từ chối đơn chờ. Web
+admin và Flutter dùng chung bảng `bookings` và trigger thông báo. Áp dụng
+migration này trước khi cập nhật web admin. Migration cũng nâng cấp được
+project đã chạy script `web/supabase/sql/06-admin-bookings.sql`.
+
 ## Dựng môi trường mới
 
 1. Với Supabase CLI và Docker đang chạy, dùng `supabase start` rồi
