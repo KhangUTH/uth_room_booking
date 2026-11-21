@@ -54,3 +54,4 @@ app.*.map.json
 /mobile/android/app/*.jks
 /mobile/android/app/*.keystore
 .env
+.env.*
