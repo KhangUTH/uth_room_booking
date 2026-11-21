@@ -1,0 +1,96 @@
+
+.page-title {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 15px;
+    margin: 40px 0 60px;
+    color: #555;
+}
+
+.page-title i {
+    font-size: 34px;
+}
+
+.toolbar {
+    width: auto;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin: 0 30px 22px;
+    flex-wrap: wrap;
+}
+
+.search-box,
+.filter-box {
+    height: 42px;
+    background: #f2f4f4;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    color: #008b8e;
+    padding: 0 15px;
+}
+
+.search-box {
+    width: 300px;
+    max-width: 100%;
+}
+
+.search-box input {
+    width: 100%;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-size: 16px;
+}
+
+.search-box input::placeholder {
+    color: #008b8e;
+}
+
+.search-box i {
+    font-size: 18px;
+}
+
+.filter-box {
+    width: 155px;
+    position: relative;
+}
+
+.filter-box select {
+    width: 100%;
+    appearance: none;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: #008b8e;
+    font-size: 16px;
+    cursor: pointer;
+}
+
+.filter-box i {
+    position: absolute;
+    right: 12px;
+    pointer-events: none;
+    font-size: 14px;
+}
+
+.title-add-button {
+    height: 42px;
+    padding: 0 18px;
+    border: none;
+    border-radius: 9px;
+    background: #008b8e;
+    color: white;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.title-add-button:hover {
+    background: #006f72;
+}

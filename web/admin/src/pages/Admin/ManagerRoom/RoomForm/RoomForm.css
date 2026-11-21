@@ -1,0 +1,13 @@
+.room-fields {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px 20px;
+}
+
+.room-image {
+    margin-top: 18px;
+}
+
+.room-description {
+    margin-top: 18px;
+}

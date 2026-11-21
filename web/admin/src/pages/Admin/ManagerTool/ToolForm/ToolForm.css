@@ -1,0 +1,13 @@
+.tool-fields {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px 20px;
+}
+
+.tool-image {
+    margin-top: 18px;
+}
+
+.tool-description {
+    margin-top: 18px;
+}

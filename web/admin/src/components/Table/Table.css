@@ -1,0 +1,154 @@
+.common-table-container {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    border-radius: 9px;
+}
+
+.common-table-container table {
+    width: max-content;
+    min-width: 100%;
+    border-collapse: collapse;
+    text-align: center;
+    table-layout: auto;
+    font-size: 16px;
+}
+
+.common-table-container th {
+    height: 45px;
+    padding: 10px 15px;
+    background: #deebeb;
+    color: #333;
+    font-size: 16px;
+    font-weight: bold;
+    border: 1px solid #d4dddd;
+    white-space: nowrap;
+}
+
+.common-table-container td {
+    height: 42px;
+    padding: 8px 15px;
+    background: #f5f5f5;
+    border: 1px solid #dedede;
+    font-size: 15px;
+    white-space: nowrap;
+}
+
+.common-image {
+    width: 100px;
+    height: 70px;
+}
+
+.common-select {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: #008b8e;
+}
+
+.common-select select {
+    border: none;
+    outline: none;
+    background: transparent;
+    color: #006d6f;
+    font-size: 15px;
+    text-align: center;
+    cursor: pointer;
+    appearance: none;
+}
+
+.common-select i {
+    font-size: 14px;
+    pointer-events: none;
+}
+
+.common-table-actions {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+}
+
+.common-table-actions button {
+    height: 32px;
+    padding: 0 12px;
+    border-radius: 7px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.common-view-button,
+.common-edit-button {
+    background: white;
+    color: #008b8e;
+    border: 1px solid #008b8e;
+}
+
+.common-view-button:hover,
+.common-edit-button:hover {
+    background: #e5f5f5;
+}
+
+.common-delete-button {
+    background: #008b8e;
+    color: white;
+    border: 1px solid #008b8e;
+}
+
+.common-delete-button:hover {
+    background: #006f72;
+}
+
+.common-student {
+    color: rgb(4, 0, 255);
+    font-weight: bold;
+}
+
+.common-teacher {
+    color: rgb(2, 0, 110);
+    font-weight: bold;
+}
+
+.common-technician {
+    color: #005f63;
+    font-weight: bold;
+}
+
+.common-status-pending,
+.common-status-received,
+.common-status-using,
+.common-status-active,
+.common-status-maintenance {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 8px 10px;
+    border-radius: 15px;
+    color: white;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.common-status-pending {
+    background: #ff891e;
+}
+
+.common-status-received {
+    background: #657765;
+}
+
+.common-status-active {
+    background: #26964b;
+}
+
+.common-status-maintenance {
+    background: #1900ff;
+}
+
+

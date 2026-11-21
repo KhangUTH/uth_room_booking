@@ -1,0 +1,337 @@
+import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../widgets/login_password_options.dart';
+
+import '../../../core/router/app_route.dart';
+import '../../../shared/widgets/pill_tabs.dart';
+import '../../../theme/app_colors.dart';
+import '../data/auth_store.dart';
+import '../data/remembered_session_storage.dart';
+import '../models/user_role.dart';
+import '../widgets/academic_login_form.dart';
+import '../widgets/technician_login_sheet.dart';
+
+class LoginPage extends StatefulWidget {
+  const LoginPage({super.key, this.supabase, this.sessionStorage})
+    : testAuthenticate = null;
+
+  @visibleForTesting
+  const LoginPage.withTestAuthentication({
+    super.key,
+    required Future<HomeRouteArgs> Function(String, String, UserRole)
+    authenticate,
+  }) : testAuthenticate = authenticate,
+       supabase = null,
+       sessionStorage = null;
+
+  final SupabaseClient? supabase;
+  final RememberedSessionStorage? sessionStorage;
+  final Future<HomeRouteArgs> Function(String, String, UserRole)?
+  testAuthenticate;
+
+  @override
+  State<LoginPage> createState() => _LoginPageState();
+}
+
+class _LoginPageState extends State<LoginPage>
+    with SingleTickerProviderStateMixin {
+  final _formKey = GlobalKey<FormState>();
+  final _idCtrl = TextEditingController();
+  final _passCtrl = TextEditingController();
+
+  late final AnimationController _floatCtrl;
+
+  UserRole _role = UserRole.student;
+  bool _submitting = false;
+  bool _keepSignedIn = false;
+  String? _credentialsError;
+
+  bool get _isStudent => _role == UserRole.student;
+
+  Future<void> _openTechnicianLogin() async {
+    if (_submitting) return;
+    final profile = await showTechnicianLoginSheet(
+      context,
+      onForgotPassword: _openPasswordRecovery,
+      authenticate: (id, password, keepSignedIn) =>
+          _authenticate(id, password, UserRole.technician, keepSignedIn),
+    );
+    if (profile != null && mounted) _openHome(profile);
+  }
+
+  Future<void> _openPasswordRecovery() async {
+    final client = widget.supabase;
+    await showPasswordRecoveryDialog(
+      context,
+      client == null ? null : PasswordRecovery(client),
+    );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _floatCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 4),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _floatCtrl.dispose();
+    _idCtrl.dispose();
+    _passCtrl.dispose();
+    super.dispose();
+  }
+
+  void _switchRole(UserRole role) {
+    if (_submitting || role == _role) return;
+    setState(() {
+      _role = role;
+      _credentialsError = null;
+      _idCtrl.clear();
+      _passCtrl.clear();
+      _formKey.currentState?.reset();
+    });
+  }
+
+  Future<HomeRouteArgs> _authenticate(
+    String identifier,
+    String password,
+    UserRole expectedRole,
+    bool keepSignedIn,
+  ) {
+    final testAuthenticate = widget.testAuthenticate;
+    return testAuthenticate != null
+        ? testAuthenticate(identifier, password, expectedRole)
+        : authenticateWithSupabase(
+            widget.supabase,
+            widget.sessionStorage,
+            identifier,
+            password,
+            expectedRole,
+            keepSignedIn,
+          );
+  }
+
+  Future<void> _login() async {
+    if (_submitting || !_formKey.currentState!.validate()) return;
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _submitting = true;
+      _credentialsError = null;
+    });
+    try {
+      final profile = await _authenticate(
+        _idCtrl.text.trim(),
+        _passCtrl.text,
+        _role,
+        _keepSignedIn,
+      );
+      if (mounted) _openHome(profile);
+    } on AuthException catch (error) {
+      if (mounted) {
+        setState(() {
+          _credentialsError = error.code == 'invalid_credentials'
+              ? 'Thông tin đăng nhập hoặc mật khẩu không đúng.'
+              : error.message;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _credentialsError = 'Không thể đăng nhập. Vui lòng thử lại.';
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  void _openHome(HomeRouteArgs profile) {
+    Navigator.of(context)
+        .pushReplacementNamed<void, void>(AppRoute.home, arguments: profile);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: Column(
+                children: [
+                  _buildLogo(),
+                  const SizedBox(height: 14),
+                  _buildRoleTabs(),
+                  const SizedBox(height: 12),
+                  _buildCard(),
+                  const SizedBox(height: 18),
+                  const Text(
+                    'UTH • Kết nối tri thức, kiến tạo tương lai',
+                    style: TextStyle(fontSize: 11, color: AppColors.textMuted),
+                  ),
+                  const SizedBox(height: 8),
+                  TextButton(
+                    onPressed: _openTechnicianLogin,
+                    child: const Text(
+                      'Cổng dành cho kỹ thuật viên',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ==== LOGO ====
+  Widget _buildLogo() {
+    return Column(
+      children: [
+        Image.asset(
+          'assets/images/logo/logo.jpg',
+          height: 33,
+          fit: BoxFit.contain,
+          // Làm nền trắng của file .jpg hòa vào màu nền trang.
+          color: AppColors.background,
+          colorBlendMode: BlendMode.multiply,
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          'Trường Đại học Giao Thông Vận Tải\nThành phố Hồ Chí Minh',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 13,
+            height: 1.3,
+            fontWeight: FontWeight.w700,
+            color: AppColors.textDark,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ==== CARD ====
+  Widget _buildCard() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x14000000),
+            blurRadius: 16,
+            offset: Offset(0, 6),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildIllustration(),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 18),
+            child: AcademicLoginForm(
+              formKey: _formKey,
+              idController: _idCtrl,
+              passwordController: _passCtrl,
+              isStudent: _isStudent,
+              onLogin: _submitting ? null : _login,
+              onForgotPassword: _submitting ? null : _openPasswordRecovery,
+              submitting: _submitting,
+              keepSignedIn: _keepSignedIn,
+              onKeepSignedInChanged: (value) =>
+                  setState(() => _keepSignedIn = value),
+              credentialsError: _credentialsError,
+              onCredentialsChanged: () {
+                if (_credentialsError != null) {
+                  setState(() => _credentialsError = null);
+                }
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ==== TABS ====
+  Widget _buildRoleTabs() => PillTabs<UserRole>(
+    options: const {
+      UserRole.student: 'Sinh viên',
+      UserRole.teacher: 'Giảng viên',
+    },
+    selected: _role,
+    onSelected: _switchRole,
+  );
+
+  // ==== ẢNH + HIỆU ỨNG ====
+  Widget _buildIllustration() {
+    final path = _isStudent
+        ? 'assets/images/illustrations/login_student.png'
+        : 'assets/images/illustrations/login_teacher.png';
+
+    final image = Image.asset(
+      path,
+      width: double.infinity,
+      height: double.infinity,
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) => Container(
+        color: const Color(0xFFD7EBE8),
+        child: Icon(
+          _isStudent ? Icons.school : Icons.person_pin,
+          size: 64,
+          color: AppColors.primary,
+        ),
+      ),
+    );
+
+    return AspectRatio(
+      aspectRatio: 2, // đúng tỷ lệ khung ảnh trong thiết kế
+      child: ClipRect(
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 450),
+          switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeIn,
+          transitionBuilder: (child, anim) {
+            final slide = Tween<Offset>(
+              begin: Offset(_isStudent ? -0.25 : 0.25, 0),
+              end: Offset.zero,
+            ).animate(anim);
+            return FadeTransition(
+              opacity: anim,
+              child: SlideTransition(position: slide, child: child),
+            );
+          },
+          child: AnimatedBuilder(
+            key: ValueKey(_role),
+            animation: _floatCtrl,
+            builder: (context, child) {
+              final t = Curves.easeInOut.transform(_floatCtrl.value);
+              return Transform.scale(
+                scale: 1.06 + 0.04 * t,
+                child: Transform.translate(
+                  offset: Offset(0, 3 - 6 * t),
+                  child: child,
+                ),
+              );
+            },
+            child: image,
+          ),
+        ),
+      ),
+    );
+  }
+}

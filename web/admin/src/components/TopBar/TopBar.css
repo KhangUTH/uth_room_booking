@@ -1,0 +1,27 @@
+.topbar {
+    height: 65px;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    padding: 0 30px;
+    border-bottom: 1px solid #eeeeee;
+}
+
+.top-actions {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+}
+
+.topbar-user { max-width: min(240px, 35vw); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #066b6e; font-size: 14px; }
+
+.icon-circle {
+    width: 40px;
+    height: 40px;
+    border: none;
+    border-radius: 50%;
+    background: #078b8e;
+    color: white;
+    font-size: 20px;
+    cursor: pointer;
+}
