@@ -89,6 +89,27 @@ trên thông báo của mình. App làm mới hộp thông báo khi mở và m�
 Migration `allow_users_to_delete_own_in_app_notifications` cho phép xóa
 theo nhóm ID trong hộp thông báo của chính tài khoản.
 
+## Dựng môi trường mới
+
+1. Với Supabase CLI và Docker đang chạy, dùng `supabase start` rồi
+   `supabase db reset --local` trên môi trường phát triển trống. Chuỗi trong
+   `migrations/` tạo schema app trên Auth và Storage có sẵn của Supabase.
+   `seed.sql` nạp danh mục phòng và thiết bị cho môi trường cục bộ.
+2. Tạo tài khoản thử qua Auth với email `@ut.edu.vn` và vai trò phù hợp.
+   Vai trò nằm trong metadata quản trị `app_role`. Gán lớp học phần cho tài
+   khoản giảng viên nếu cần thử đặt phòng hoặc báo cáo cần hỗ trợ ngay.
+3. Chạy `supabase functions serve sign-in-by-code` ở môi trường cục bộ hoặc
+   triển khai hàm trong project mới bằng `supabase functions deploy sign-in-by-code`.
+   Hàm đọc khóa từ biến môi trường của Supabase. Flutter chỉ dùng khóa
+   publishable hoặc anon khi cấu hình URL project mới.
+
+Repo lưu các phiên bản migration đã ghi nhận trên UTHBookingApp và bổ sung
+schema nền cùng các thay đổi từng chạy qua SQL Editor. Trước khi dùng
+`supabase db push` với UTHBookingApp hiện tại, đối chiếu và đồng bộ lịch sử
+migration với schema đã tồn tại. Chạy lại schema nền trên project đang
+có dữ liệu sẽ gây xung đột. Dữ liệu người dùng, lịch đặt, báo cáo và tệp
+Storage được phục hồi qua bản sao lưu riêng khi cần.
+
 ## Bản nháp schema ban đầu
 
 Bản nháp này có quy tắc đặt lịch cũ và cần đối chiếu với các migration
