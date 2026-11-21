@@ -43,7 +43,7 @@ không chạy bản nháp nền tảng cũ. Bản snapshot trong fixtures chỉ 
 
 - SV/GV tạo báo cáo với `status = open`, chưa có `approved_at`, `approved_by`,
   `assigned_to`. Chỉ báo cáo chưa duyệt còn được hủy.
-- Web admin trong `D:\Codeprogram\HKDN\projects\UTH-Booking-Room` gọi
+- Ứng dụng quản trị trong [`web/admin/`](../web/admin/) gọi
   `admin_incident_reports` để xem dữ liệu thật.
   Nút **Duyệt** gọi `approve_incident_report(report_id)`.
   RPC ghi người duyệt, giờ duyệt; chưa chỉ định kỹ thuật viên.
