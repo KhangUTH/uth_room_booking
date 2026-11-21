@@ -35,6 +35,11 @@ migrate_working_dir/
 /mobile/build/
 /mobile/coverage/
 
+# Native folders generated outside the Flutter project
+/android/
+/ios/
+/macos/
+
 # Symbolication related
 app.*.symbols
 
