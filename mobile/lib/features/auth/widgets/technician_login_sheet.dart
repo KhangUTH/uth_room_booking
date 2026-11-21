@@ -8,6 +8,7 @@ import "package:uth_room_booking/theme/app_colors.dart";
 Future<HomeRouteArgs?> showTechnicianLoginSheet(
   BuildContext context, {
   required Future<HomeRouteArgs> Function(String, String, bool) authenticate,
+  VoidCallback? onForgotPassword,
 }) {
   return showModalBottomSheet<HomeRouteArgs>(
     context: context,
@@ -20,14 +21,22 @@ Future<HomeRouteArgs?> showTechnicianLoginSheet(
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
     ),
-    builder: (_) => TechnicianLoginSheet(authenticate: authenticate),
+    builder: (_) => TechnicianLoginSheet(
+      authenticate: authenticate,
+      onForgotPassword: onForgotPassword,
+    ),
   );
 }
 
 class TechnicianLoginSheet extends StatefulWidget {
-  const TechnicianLoginSheet({super.key, required this.authenticate});
+  const TechnicianLoginSheet({
+    super.key,
+    required this.authenticate,
+    this.onForgotPassword,
+  });
 
   final Future<HomeRouteArgs> Function(String, String, bool) authenticate;
+  final VoidCallback? onForgotPassword;
 
   @override
   State<TechnicianLoginSheet> createState() => _TechnicianLoginSheetState();
@@ -207,6 +216,7 @@ class _TechnicianLoginSheetState extends State<TechnicianLoginSheet> {
                 (v == null || v.isEmpty) ? 'Vui lòng nhập mật khẩu' : null,
           ),
           LoginPasswordOptions(
+            onForgotPassword: _submitting ? null : widget.onForgotPassword,
             keepSignedIn: _keepSignedIn,
             onKeepSignedInChanged: _submitting
                 ? null

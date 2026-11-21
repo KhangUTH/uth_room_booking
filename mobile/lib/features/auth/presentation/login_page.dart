@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../widgets/login_password_options.dart';
+
 import '../../../core/router/app_route.dart';
 import '../../../shared/widgets/pill_tabs.dart';
 import '../../../theme/app_colors.dart';
@@ -51,10 +53,19 @@ class _LoginPageState extends State<LoginPage>
     if (_submitting) return;
     final profile = await showTechnicianLoginSheet(
       context,
+      onForgotPassword: _openPasswordRecovery,
       authenticate: (id, password, keepSignedIn) =>
           _authenticate(id, password, UserRole.technician, keepSignedIn),
     );
     if (profile != null && mounted) _openHome(profile);
+  }
+
+  Future<void> _openPasswordRecovery() async {
+    final client = widget.supabase;
+    await showPasswordRecoveryDialog(
+      context,
+      client == null ? null : PasswordRecovery(client),
+    );
   }
 
   @override
@@ -238,6 +249,7 @@ class _LoginPageState extends State<LoginPage>
               passwordController: _passCtrl,
               isStudent: _isStudent,
               onLogin: _submitting ? null : _login,
+              onForgotPassword: _submitting ? null : _openPasswordRecovery,
               submitting: _submitting,
               keepSignedIn: _keepSignedIn,
               onKeepSignedInChanged: (value) =>

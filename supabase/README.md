@@ -1,5 +1,16 @@
 # Backend Supabase
 
+## Khôi phục mật khẩu
+
+Trong **Authentication → Email Templates → Reset Password**, dùng
+`{{ .Token }}` trong nội dung email để người dùng nhập mã vào app. Email được
+gửi tới địa chỉ đã gắn với tài khoản Supabase Auth. Cấu hình SMTP riêng trước
+khi gửi tới người dùng ngoài nhóm quản lý project.
+
+Để kiểm thử, dùng một tài khoản thử có hộp thư thật. Sau khi nhận mã và đặt
+mật khẩu mới, đăng nhập lại trên app bằng mật khẩu mới. Các tài khoản demo
+dùng địa chỉ giả chỉ phục vụ trình diễn đăng nhập.
+
 Flutter dùng Supabase cho xác thực, đọc hồ sơ, lưu ảnh đại diện và đọc danh
 mục tài sản trong màn Lịch, Báo cáo và luồng bảo trì của kỹ thuật viên.
 Project từ xa `UTHBookingApp` có các bảng `profiles`, `rooms`, `equipment`,
