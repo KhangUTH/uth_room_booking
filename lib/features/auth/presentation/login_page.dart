@@ -8,6 +8,7 @@ import '../data/auth_store.dart';
 import '../data/remembered_session_storage.dart';
 import '../models/user_role.dart';
 import '../widgets/academic_login_form.dart';
+import '../widgets/login_password_options.dart';
 import '../widgets/technician_login_sheet.dart';
 
 class LoginPage extends StatefulWidget {
@@ -51,10 +52,19 @@ class _LoginPageState extends State<LoginPage>
     if (_submitting) return;
     final profile = await showTechnicianLoginSheet(
       context,
+      onForgotPassword: _openPasswordRecovery,
       authenticate: (id, password, keepSignedIn) =>
           _authenticate(id, password, UserRole.technician, keepSignedIn),
     );
     if (profile != null && mounted) _openHome(profile);
+  }
+
+  Future<void> _openPasswordRecovery() async {
+    final client = widget.supabase;
+    await showPasswordRecoveryDialog(
+      context,
+      client == null ? null : PasswordRecovery(client),
+    );
   }
 
   @override
@@ -238,6 +248,7 @@ class _LoginPageState extends State<LoginPage>
               passwordController: _passCtrl,
               isStudent: _isStudent,
               onLogin: _submitting ? null : _login,
+              onForgotPassword: _submitting ? null : _openPasswordRecovery,
               submitting: _submitting,
               keepSignedIn: _keepSignedIn,
               onKeepSignedInChanged: (value) =>

@@ -11,6 +11,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:uth_room_booking/core/router/app_route.dart';
 import 'package:uth_room_booking/core/router/app_router.dart';
+import 'package:uth_room_booking/features/auth/data/auth_store.dart';
 import 'package:uth_room_booking/features/auth/data/remembered_session_storage.dart';
 import 'package:uth_room_booking/features/auth/models/user_role.dart';
 import 'package:uth_room_booking/features/auth/presentation/login_page.dart';
@@ -75,6 +76,73 @@ Widget _loginApp({bool useTestAuthentication = true}) {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  test(
+    'OTP khôi phục xác minh trước khi đổi mật khẩu và không tạo phiên app',
+    () async {
+      const email = 'recovery@example.com';
+      final paths = <String>[];
+      final httpClient = MockClient((request) async {
+        paths.add(request.url.path);
+        final body = request.body.isEmpty
+            ? <String, dynamic>{}
+            : jsonDecode(request.body) as Map<String, dynamic>;
+        switch (request.url.path) {
+          case '/auth/v1/recover':
+            expect(body['email'], email);
+            return http.Response('{}', 200);
+          case '/auth/v1/verify':
+            expect(body['type'], 'recovery');
+            expect(body['email'], email);
+            if (body['token'] != '123456') {
+              return http.Response(
+                '{"code":"otp_expired","message":"Invalid code"}',
+                403,
+              );
+            }
+            return http.Response(jsonEncode(_testSession.toJson()), 200);
+          case '/auth/v1/user':
+            expect(
+              request.headers['authorization'],
+              'Bearer test-access-token',
+            );
+            expect(body['password'], 'Mat-khau-thu-2026');
+            return http.Response(jsonEncode(_testSession.user.toJson()), 200);
+          case '/auth/v1/logout':
+            return http.Response('', 204);
+          default:
+            fail('Unexpected request: ${request.url.path}');
+        }
+      });
+      final client = SupabaseClient(
+        'https://example.com',
+        'sb_publishable_example',
+      );
+      addTearDown(client.dispose);
+      final recovery = PasswordRecovery(client, httpClient: httpClient);
+
+      await recovery.sendCode(email);
+      await expectLater(
+        recovery.verifyCode(email, '000000'),
+        throwsA(isA<AuthException>()),
+      );
+      await expectLater(
+        recovery.updatePassword('Mat-khau-thu-2026'),
+        throwsStateError,
+      );
+      await recovery.verifyCode(email, '123456');
+      expect(client.auth.currentSession, isNull);
+      await recovery.updatePassword('Mat-khau-thu-2026');
+      await recovery.close();
+      expect(paths, [
+        '/auth/v1/recover',
+        '/auth/v1/verify',
+        '/auth/v1/verify',
+        '/auth/v1/user',
+        '/auth/v1/logout',
+      ]);
+    },
+  );
 
   test('chỉ lưu phiên khi người dùng chọn ghi nhớ', () async {
     SharedPreferences.setMockInitialValues({'sb-example-auth-token': 'old'});
