@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { createClient } from '@supabase/supabase-js';
 import { archiveRecord, dataErrorMessage, deleteRecord, listRecords, loadReferences, recordPayload, saveRecord, searchFilter } from '../src/lib/adminData.js';
-import { validateCreateUser } from '../../supabase/functions/admin-create-user/validation.js';
+import { validateCreateUser } from '../../../supabase/functions/admin-create-user/validation.js';
 
 function fixture(respond) {
   const requests = [];

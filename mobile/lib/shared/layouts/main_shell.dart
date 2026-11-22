@@ -29,9 +29,7 @@ import '../../features/technician/controllers/technician_work_controller.dart';
 import '../../features/technician/data/demo_incident_queue.dart';
 import '../../features/technician/data/technician_incident_store.dart';
 import '../../features/technician/models/task_filter.dart';
-import '../../features/technician/presentation/maintenance_proposals_page.dart';
-import '../../features/technician/presentation/technician_assets_page.dart';
-import '../../features/technician/presentation/technician_dashboard.dart';
+import '../../features/technician/presentation/technician_home_content.dart';
 import '../../features/technician/presentation/technician_schedule_page.dart';
 import '../../features/technician/presentation/technician_work_view.dart';
 
@@ -127,7 +125,13 @@ class _MainShellState extends State<MainShell> {
     if (_isTechnician) {
       _workController
         ..addListener(_workChanged)
-        ..start();
+        ..start(
+          isWorkVisible: () =>
+              (_selectedTab == _ShellTab.home &&
+                  !_assetsVisible &&
+                  !_maintenanceVisible) ||
+              (_selectedTab == _ShellTab.work && !_showWorkSchedule),
+        );
     }
     widget.noticeStore
       ?..addListener(_noticeChanged)
@@ -469,36 +473,19 @@ class _MainShellState extends State<MainShell> {
     );
   }
 
-  Widget _buildTechnicianHome() => IndexedStack(
-    index: _showMaintenance
-        ? (_showTechnicianAssets ? 2 : 1)
-        : (_showTechnicianAssets ? 1 : 0),
-    children: [
-      TechnicianDashboard(
-        jobs: _workController.jobs,
-        notices: widget.noticeStore?.notices,
-        onWork: _openWork,
-        onNotifications: _openNotifications,
-        onAssets: () => _setTechnicianAssets(true),
-        onMaintenance: _openMaintenance,
-      ),
-      if (_showTechnicianAssets)
-        _assetCatalog.content(
-          (catalog) => TechnicianAssetsPage(
-            onAsset: (asset) => _openMaintenance(asset: asset),
-            catalog: catalog,
-            onRefresh: widget.loadCatalog == null ? null : _assetCatalog.reload,
-          ),
-        ),
-      if (_showMaintenance)
-        _assetCatalog.content(
-          (catalog) => MaintenanceProposalsPage(
-            controller: _maintenance,
-            initialAsset: _maintenanceAsset,
-            catalog: catalog,
-          ),
-        ),
-    ],
+  Widget _buildTechnicianHome() => TechnicianHomeContent(
+    jobs: _workController.jobs,
+    notices: widget.noticeStore?.notices,
+    catalog: _assetCatalog,
+    refreshCatalog: widget.loadCatalog != null,
+    showAssets: _showTechnicianAssets,
+    showMaintenance: _showMaintenance,
+    maintenance: _maintenance,
+    maintenanceAsset: _maintenanceAsset,
+    onWork: _openWork,
+    onNotifications: _openNotifications,
+    onAssets: () => _setTechnicianAssets(true),
+    onMaintenance: _openMaintenance,
   );
 
   late final _bookings = _createBookingController();

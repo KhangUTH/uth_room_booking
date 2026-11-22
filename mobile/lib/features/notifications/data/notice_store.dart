@@ -31,12 +31,16 @@ class NoticeStore extends ChangeNotifier {
   int _revision = 0;
   bool _pushEnabled = false;
   int? _latestNoticeId;
+  List<Map<String, dynamic>>? _lastRows;
+  final _pollBackoff = Stopwatch();
 
   void start() {
     _restoringPush = _restorePush();
     unawaited(refresh());
     _timer = Timer.periodic(const Duration(seconds: 5), (_) {
-      if (WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) {
+      if (WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed &&
+          (!_pollBackoff.isRunning ||
+              _pollBackoff.elapsed >= const Duration(seconds: 15))) {
         unawaited(refresh());
       }
     });
@@ -103,6 +107,9 @@ class NoticeStore extends ChangeNotifier {
 
   Future<void> _load() async {
     final revision = _revision;
+    final wasLoading = loading;
+    final hadFailed = loadFailed;
+    var changed = false;
     try {
       final rows = await _client
           .from('app_notifications')
@@ -112,6 +119,18 @@ class NoticeStore extends ChangeNotifier {
           .order('id', ascending: false)
           .timeout(const Duration(seconds: 10));
       if (_disposed || revision != _revision) return;
+      _pollBackoff
+        ..stop()
+        ..reset();
+      loadFailed = false;
+      final previousRows = _lastRows;
+      if (previousRows != null &&
+          previousRows.length == rows.length &&
+          Iterable<int>.generate(rows.length)
+              .every((index) => mapEquals(previousRows[index], rows[index]))) {
+        return;
+      }
+      changed = true;
       notices = [
         for (final row in rows)
           (
@@ -138,6 +157,7 @@ class NoticeStore extends ChangeNotifier {
         if (row['is_read'] == true) read.add(id);
         if (row['is_saved'] == true) saved.add(id);
       }
+      _lastRows = rows;
       final previousId = _latestNoticeId;
       final newestId = notices.firstOrNull?.id ?? 0;
       if (previousId == null || newestId > previousId) {
@@ -157,13 +177,16 @@ class NoticeStore extends ChangeNotifier {
           );
         }
       }
-      loadFailed = false;
     } catch (_) {
+      if (_disposed || revision != _revision) return;
       loadFailed = true;
+      _pollBackoff
+        ..reset()
+        ..start();
     } finally {
       if (!_disposed) {
         loading = false;
-        notifyListeners();
+        if (changed || wasLoading || loadFailed != hadFailed) notifyListeners();
       }
     }
   }
@@ -194,6 +217,7 @@ class NoticeStore extends ChangeNotifier {
         .timeout(const Duration(seconds: 10));
     if (_disposed) return;
     _revision++;
+    _lastRows = null;
     notices = notices.where((notice) => !ids.contains(notice.id)).toList();
     read.removeAll(ids);
     saved.removeAll(ids);
@@ -212,6 +236,7 @@ class NoticeStore extends ChangeNotifier {
         .timeout(const Duration(seconds: 10));
     if (_disposed) return;
     _revision++;
+    _lastRows = null;
     if (value) {
       flags.add(id);
     } else {

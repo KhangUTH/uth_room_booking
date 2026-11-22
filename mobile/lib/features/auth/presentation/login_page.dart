@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../widgets/login_password_options.dart';
+import '../widgets/password_recovery_dialog.dart';
 
 import '../../../core/router/app_route.dart';
 import '../../../shared/widgets/pill_tabs.dart';

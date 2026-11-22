@@ -25,11 +25,12 @@ class TechnicianWorkController extends ChangeNotifier {
   List<TechnicianTask> get jobs =>
       store == null ? [...queue.tasks, ..._sampleJobs] : _liveJobs;
 
-  void start() {
+  void start({required bool Function() isWorkVisible}) {
     if (store == null) return;
     unawaited(refresh());
     _timer = Timer.periodic(const Duration(seconds: 5), (_) {
-      if (WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) {
+      if (WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed &&
+          isWorkVisible()) {
         unawaited(refresh(silent: true));
       }
     });

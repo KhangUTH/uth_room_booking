@@ -71,7 +71,18 @@ Migration [`connect_admin_booking_review`](migrations/20261121120000_connect_adm
 cấp cho admin đang hoạt động quyền xem và duyệt hoặc từ chối đơn chờ. Web
 admin và Flutter dùng chung bảng `bookings` và trigger thông báo. Áp dụng
 migration này trước khi cập nhật web admin. Migration cũng nâng cấp được
-project đã chạy script `web/supabase/sql/06-admin-bookings.sql`.
+project đã chạy [script duyệt lịch cũ](operations/admin/06-admin-bookings.sql).
+
+## Backend web quản trị
+
+- [Edge Function tạo tài khoản](functions/admin-create-user/index.ts) nằm cùng
+  các Edge Function của mobile. Triển khai từ gốc repo khi bật chức năng
+  tạo tài khoản trong môi trường đích.
+- [SQL vận hành web quản trị](operations/admin/) chứa script kiểm tra, SQL
+  thiết lập thủ công, bản tham chiếu và rollback. Các file này nằm ngoài
+  `migrations/`; chỉ chạy script phù hợp với schema hiện có.
+- [Kiểm thử CRUD quản trị](operations/admin/tests/admin-facilities-crud.sql)
+  dùng `psql` và cơ sở dữ liệu thử nghiệm trống riêng, theo điều kiện ghi trong file.
 
 ## Dựng môi trường mới
 

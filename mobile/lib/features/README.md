@@ -19,6 +19,10 @@ Menu chọn vị trí và lớp học phần nằm trong `incident_report/widget
 
 Trạng thái tải lại danh mục, dữ liệu đã tải và khung thử lại nằm trong `lib/shared/layouts/shell_catalog_content.dart`. `MainShell` dùng chung phần này cho các tab cần danh mục.
 
+`technician/presentation/technician_home_content.dart` ghép dashboard, danh mục phụ trách và đề xuất bảo trì. `MainShell` giữ trạng thái điều hướng và xử lý nút quay lại.
+
+`auth/widgets/login_password_options.dart` chứa các tùy chọn dưới ô mật khẩu. Hộp thoại khôi phục mật khẩu, xác minh OTP và đặt mật khẩu mới nằm trong `auth/widgets/password_recovery_dialog.dart`.
+
 Bảng chi tiết mở từ hộp thư nằm trong `notifications/widgets/notice_details_sheet.dart`. Các nút chọn loại sự cố và công tắc hỗ trợ trong giờ dạy nằm trong `incident_report/widgets/incident_report_controls.dart`. Hộp lưu ý khi mở Lịch nằm trong `booking/widgets/booking_hint.dart`.
 
 Phần vẽ vòng trang trí màn hình khởi động nằm trong `splash/widgets/splash_ring_painters.dart`.

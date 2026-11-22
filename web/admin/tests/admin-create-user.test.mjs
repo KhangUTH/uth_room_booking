@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { createAdminUserHandler } from '../../supabase/functions/admin-create-user/handler.js';
+import { createAdminUserHandler } from '../../../supabase/functions/admin-create-user/handler.js';
 
 const payload = { email: 'new@example.com', password: 'pass123456', profile: { full_name: 'New user', role: 'student', is_active: true } };
 function fixture(options = {}) {
