@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { createClient } from '@supabase/supabase-js';
 import { dataErrorMessage, deleteRecord, listRecords, loadReferences, recordPayload, saveRecord, searchFilter } from '../src/lib/adminData.js';
 import { validateCreateUser } from '../../../supabase/functions/admin-create-user/validation.js';
-import { listMaintenanceProposals, loadOverviewCounts, loadRecentActivity } from '../src/pages/Admin/AdminOperations/operationsData.js';
+import { countBookingsSince, listMaintenanceProposals, loadOverviewCounts, loadRecentActivity } from '../src/pages/Admin/AdminOperations/operationsData.js';
 
 function fixture(respond) {
   const requests = [];
@@ -18,6 +18,16 @@ function fixture(respond) {
   });
   return { client, requests };
 }
+
+test('booking bell counts submissions after the last view without downloading rows', async () => {
+  const { client, requests } = fixture(() => ({ body: [], headers: { 'content-range': '*/14' } }));
+  const since = '2026-11-26T08:00:00.000Z';
+  const signal = new AbortController().signal;
+  assert.equal(await countBookingsSince(client, since, signal), 14);
+  assert.equal(requests[0].method, 'HEAD');
+  assert.equal(requests[0].url.searchParams.get('created_at'), `gt.${since}`);
+  assert.equal(requests[0].headers.get('prefer'), 'count=exact');
+});
 
 test('overview counts and pending proposal list use matching status filters', async () => {
   const { client, requests } = fixture(() => ({ body: [], headers: { 'content-range': '*/0' } }));

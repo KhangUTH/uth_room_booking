@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -13,6 +15,7 @@ import 'package:uth_room_booking/features/booking/data/sample_booking_data.dart'
 import 'package:uth_room_booking/features/booking/models/booking.dart';
 import 'package:uth_room_booking/features/notifications/data/notice_store.dart';
 import 'package:uth_room_booking/features/notifications/presentation/notifications_view.dart';
+import 'package:uth_room_booking/features/profile/presentation/app_permissions_page.dart';
 import 'package:uth_room_booking/shared/layouts/header.dart';
 import 'package:uth_room_booking/shared/layouts/main_shell.dart';
 
@@ -39,6 +42,36 @@ class _ScheduleStore extends BookingStore {
 }
 
 void main() {
+  testWidgets('quyền micro cập nhật khi trở về từ Cài đặt Android', (
+    tester,
+  ) async {
+    const channel = MethodChannel('uth_room_booking/app_settings');
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    final settingsReturn = Completer<bool>();
+    var granted = false;
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      return switch (call.method) {
+        'openAndWait' => settingsReturn.future,
+        'status' => {'microphone': granted ? 'granted' : 'denied'},
+        _ => null,
+      };
+    });
+    addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+
+    await tester.pumpWidget(const MaterialApp(home: AppPermissionsPage()));
+    await tester.pumpAndSettle();
+    expect(find.text('Chưa cấp'), findsOneWidget);
+
+    await tester.tap(find.text('Mở cài đặt thiết bị'));
+    await tester.pump();
+    expect(find.text('Chưa cấp'), findsOneWidget);
+    granted = true;
+    settingsReturn.complete(true);
+    await tester.pumpAndSettle();
+    expect(find.text('Đã cấp'), findsOneWidget);
+  }, variant: const TargetPlatformVariant({TargetPlatform.android}));
+
   test('danh mục vẫn tải phòng hợp lệ khi một phòng thiếu sức chứa', () async {
     final client = SupabaseClient(
       'https://example.com',

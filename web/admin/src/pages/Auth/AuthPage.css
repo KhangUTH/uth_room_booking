@@ -28,6 +28,8 @@
 .auth-password button { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); border: 0; background: transparent; padding: 8px; color: #086c6f; cursor: pointer; }
 .auth-options { display: flex; justify-content: flex-end; margin: -5px 0 24px; font-size: 13px; }
 .auth-card a { color: #066b6e; text-underline-offset: 3px; }
+.auth-options a { text-decoration: none; }
+.auth-page input[type="password"]::-ms-reveal { display: none; }
 .auth-submit { width: 100%; min-height: 50px; background: #078b8e; color: white; border: 0; border-radius: 8px; font-weight: 700; font-size: 15px; cursor: pointer; }
 .auth-submit:hover { background: #056b6e; }
 .auth-secondary { width: 100%; min-height: 48px; margin-top: 12px; border: 1px solid #cddcdd; border-radius: 8px; background: white; color: #066b6e; font-size: 14px; cursor: pointer; }

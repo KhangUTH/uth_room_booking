@@ -40,7 +40,9 @@ import UserNotifications
             "notifications": notifications,
             "camera": AVCaptureDevice.authorizationStatus(for: .video) == .authorized
               ? "granted" : "denied",
-            "photos": photos
+            "photos": photos,
+            "microphone": AVCaptureDevice.authorizationStatus(for: .audio) == .authorized
+              ? "granted" : "denied"
           ])
         }
         return

@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:uth_room_booking/theme/app_colors.dart';
 
 import '../../../theme/app_text_sizes.dart';
-import '../../notifications/data/sample_notices.dart';
+import '../../booking/controllers/booking_controller.dart';
+import '../../booking/presentation/booking_history_page.dart';
 import '../../notifications/models/app_notice.dart';
+import '../../room/data/sample_rooms.dart';
 import '../widgets/home_action_cards.dart';
 import '../widgets/home_notice_card.dart';
 import '../widgets/home_stats_card.dart';
@@ -12,29 +14,36 @@ import '../widgets/home_stats_card.dart';
 class HomeDashboard extends StatelessWidget {
   const HomeDashboard({
     super.key,
-    required this.availableRooms,
+    required this.bookings,
+    required this.usesSampleCatalog,
     required this.onNotifications,
     required this.onRooms,
     required this.onEquipment,
     required this.onSchedule,
-    required this.onHistory,
-    this.notices = demoNotices,
+    required this.notices,
     this.onRefresh,
-    this.counts,
   });
 
-  final int? availableRooms;
+  final BookingController bookings;
+  final bool usesSampleCatalog;
   final VoidCallback onNotifications;
   final VoidCallback onRooms;
   final VoidCallback onEquipment;
   final VoidCallback onSchedule;
-  final VoidCallback onHistory;
   final List<AppNotice> notices;
   final Future<void> Function()? onRefresh;
-  final ({int upcoming, int inUse, int used})? counts;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: bookings,
+    builder: (context, _) => _buildDashboard(context),
+  );
+
+  Widget _buildDashboard(BuildContext context) {
+    final counts = bookings.homeCounts();
+    final availableRooms = usesSampleCatalog
+        ? sampleRooms.where((room) => room.status == 'Trống').length
+        : null;
     final content = SingleChildScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
       child: Stack(
@@ -86,14 +95,18 @@ class HomeDashboard extends StatelessWidget {
                     title: 'Lịch của tôi',
                     subtitle: counts == null
                         ? 'Xem lịch đăng ký'
-                        : '${counts!.upcoming} lịch sắp tới',
+                        : '${counts.upcoming} lịch sắp tới',
                     onTap: onSchedule,
                   ),
                   second: HomeActionCard(
                     icon: Icons.schedule,
                     title: 'Lịch sử',
                     subtitle: 'Xem lượt đã dùng',
-                    onTap: onHistory,
+                    onTap: () => Navigator.of(context).push<void>(
+                      MaterialPageRoute<void>(
+                        builder: (_) => BookingHistoryPage(bookings: bookings),
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 16),

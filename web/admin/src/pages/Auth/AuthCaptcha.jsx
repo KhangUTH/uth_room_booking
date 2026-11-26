@@ -31,6 +31,7 @@ export default function AuthCaptcha({ siteKey, onToken }) {
       api = turnstile;
       widget = api.render(container.current, {
         sitekey: siteKey,
+        action: "admin_login",
         language: "vi",
         callback: (token) => { if (active) { setFailed(false); onToken(token); } },
         "expired-callback": invalidate,

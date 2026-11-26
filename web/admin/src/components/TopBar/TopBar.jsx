@@ -6,9 +6,9 @@ import { supabase } from "../../lib/supabase.js";
 import { authErrorMessage } from "../../lib/authErrors.js";
 import AdminPasswordDialog from "./AdminPasswordDialog.jsx";
 import { StatusBadge } from "../Table/Table.jsx";
-import { bookingAsset, bookingStatuses, displayDateTime, listBookings } from "../../pages/Admin/AdminOperations/operationsData.js";
+import { bookingAsset, bookingStatuses, countBookingsSince, displayDateTime, listBookings } from "../../pages/Admin/AdminOperations/operationsData.js";
 
-function TopBar({ bookingRevision, newBookings, onViewBookings }) {
+function TopBar({ bookingRevision }) {
     const { user, profile, signOut } = useAuth();
     const menu = useRef(null);
     const account = useRef(null);
@@ -20,19 +20,29 @@ function TopBar({ bookingRevision, newBookings, onViewBookings }) {
     const [rows, setRows] = useState(null);
     const [failed, setFailed] = useState(false);
     const [retry, setRetry] = useState(0);
+    const [unseenCount, setUnseenCount] = useState(0);
+    const [initialSeenAt] = useState(() => new Date().toISOString());
+    const seenAt = useRef(initialSeenAt);
+    const newBookings = open ? 0 : unseenCount;
 
     useEffect(() => {
-        if (!open || !supabase) return;
+        if (!supabase) return;
         const request = new AbortController();
         const timeout = setTimeout(() => request.abort(), 15000);
         let active = true;
-        listBookings(supabase, { status: "", type: "", date: "", search: "", page: 1 }, request.signal)
+        const startedAt = new Date().toISOString();
+        const load = open
+            ? listBookings(supabase, { status: "", type: "", date: "", search: "", page: 1 }, request.signal)
             .then(({ rows }) => {
                 if (!active) return;
                 setRows(rows);
                 setFailed(false);
+                seenAt.current = startedAt;
+                setUnseenCount(0);
             })
-            .catch(() => { if (active) setFailed(true); })
+            : countBookingsSince(supabase, seenAt.current, request.signal)
+                .then((count) => { if (active) setUnseenCount(count ?? 0); });
+        load.catch(() => { if (active && open) setFailed(true); })
             .finally(() => clearTimeout(timeout));
         return () => {
             active = false;
@@ -79,7 +89,6 @@ function TopBar({ bookingRevision, newBookings, onViewBookings }) {
                     <span className="topbar-user" title={user?.email}>{profile?.full_name || user?.email}</span>
                     <details className="topbar-notices" ref={menu} onToggle={(event) => {
                         setOpen(event.currentTarget.open);
-                        if (event.currentTarget.open) onViewBookings();
                     }}>
                         <summary className="icon-circle topbar-bell" aria-label={newBookings ? `Thông báo, ${newBookings} đăng ký mới` : "Thông báo"}>
                             <i className="fa-regular fa-bell" aria-hidden="true"></i>

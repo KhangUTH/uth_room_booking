@@ -17,6 +17,30 @@ import 'package:uth_room_booking/shared/layouts/main_shell.dart';
 import 'support/widget_test_helpers.dart';
 
 void main() {
+  testWidgets('UTH AI kỹ thuật viên tra cứu công việc đang xử lý', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: MainShell(
+          name: 'Nguyễn Văn An',
+          id: 'KT001',
+          role: UserRole.technician,
+        ),
+      ),
+    );
+    await tester.tap(find.byTooltip('Mở UTH AI'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.text('Trợ lý UTH Lab'), findsOneWidget);
+    expect(find.text('Xin chào, An'), findsOneWidget);
+    expect(find.text('Chiều nay phòng máy nào còn trống?'), findsNothing);
+
+    await tester.tap(find.text('Mình đang xử lý những việc nào?'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Máy chiếu - H301'), findsOneWidget);
+  });
+
   test('đề xuất dùng ID của thiết bị đã chọn khi tên trùng nhau', () async {
     var inserts = 0;
     final client = SupabaseClient(

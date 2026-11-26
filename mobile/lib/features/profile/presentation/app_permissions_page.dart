@@ -16,9 +16,11 @@ class _AppPermissionsPageState extends State<AppPermissionsPage>
     ('notifications', 'Thông báo', Icons.notifications_outlined),
     ('camera', 'Chụp ảnh', Icons.photo_camera_outlined),
     ('photos', 'Thư viện ảnh', Icons.photo_library_outlined),
+    ('microphone', 'Micro', Icons.mic_none_rounded),
   ];
 
   late Future<Map<String, String>> _statuses;
+  bool _openingSettings = false;
 
   @override
   void initState() {
@@ -41,7 +43,14 @@ class _AppPermissionsPageState extends State<AppPermissionsPage>
   }
 
   Future<void> _openSettings() async {
-    if (await AppPermissions.openSettings() || !mounted) return;
+    setState(() => _openingSettings = true);
+    final opened = await AppPermissions.openSettings(waitForReturn: true);
+    if (!mounted) return;
+    setState(() {
+      _openingSettings = false;
+      _statuses = AppPermissions.readStatuses();
+    });
+    if (opened) return;
     ScaffoldMessenger.of(context)
       ..removeCurrentSnackBar()
       ..showSnackBar(
@@ -102,7 +111,7 @@ class _AppPermissionsPageState extends State<AppPermissionsPage>
       top: false,
       minimum: const EdgeInsets.fromLTRB(16, 8, 16, 16),
       child: FilledButton(
-        onPressed: _openSettings,
+        onPressed: _openingSettings ? null : _openSettings,
         child: const Text('Mở cài đặt thiết bị'),
       ),
     ),

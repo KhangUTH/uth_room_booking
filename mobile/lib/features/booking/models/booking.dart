@@ -5,6 +5,29 @@ typedef CourseSection = ({String code, String name});
 
 enum SlotStatus { free, booked, mine, maintenance }
 
+enum ScheduleQuestion {
+  today,
+  tomorrow,
+  next;
+
+  static ScheduleQuestion? fromMessage(String message) {
+    final words = message.toLowerCase().split(
+      RegExp(r'[^\p{L}\p{N}]+', unicode: true),
+    );
+    final text = ' ${words.where((word) => word.isNotEmpty).join(' ')} ';
+    if (text.contains(' ngày mai ') || text.contains(' mai ')) {
+      return tomorrow;
+    }
+    if (text.contains(' hôm nay ') || text.contains(' ngày hôm nay ')) {
+      return today;
+    }
+    if (text.contains(' tiếp theo ') || text.contains(' sắp tới ')) {
+      return next;
+    }
+    return null;
+  }
+}
+
 enum BookingStatus {
   pending,
   approved,

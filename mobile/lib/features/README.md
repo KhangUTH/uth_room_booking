@@ -6,6 +6,18 @@ Màn hình nằm trong `presentation/` của tính năng tương ứng. Widget d
 
 Lịch dùng ID Supabase để đối chiếu tài sản và ca bận. `ScheduleView` làm mới ngầm khi tab Lịch đang mở ở tiền cảnh.
 
+`BookingController` lọc danh mục theo vai trò và tính số tài sản còn trống theo ca. `ScheduleView` giữ lựa chọn ngày, ca và trạng thái làm mới.
+
+`ai_chat/` tách giao diện, mô hình tin nhắn, điều phối hội thoại và `ChatRepository`. Hội thoại hiện tại và lịch sử được giữ trong phiên đăng nhập. Repository mô phỏng luồng đặt phòng và báo cáo, còn lịch cá nhân dùng `BookingController` như trang Lịch.
+
+Trong `ai_chat/widgets/`, `chat_avatar.dart` chứa robot, nút mở và hiệu ứng. `chat_welcome.dart` chứa màn chào và gợi ý theo vai trò. `chat_turn.dart` ghép bong bóng với thẻ kết quả. Form báo cáo mẫu nằm trong `chat_incident_draft_dialog.dart`. Hợp đồng `ChatRepository` nằm riêng với các triển khai trong `ai_chat/data/`.
+
+`ChatVoiceInput` dùng dịch vụ nhận dạng giọng nói của thiết bị để điền tiếng Việt vào ô chat. Quyền micro được hỏi khi chạm nút micro. Người dùng kiểm tra văn bản trước khi gửi.
+
+Ba vai trò dùng chung `ChatScreen`. Kỹ thuật viên nhận câu hỏi gợi ý về công việc và dùng `TechnicianChatRepository` để tra cứu danh sách theo quyền của tài khoản.
+
+`HomeDashboard` theo dõi số liệu đặt lịch và mở trang Lịch sử. `IncidentReportView.fromCatalog` chuyển danh mục phòng và thiết bị thành các lựa chọn phù hợp cho báo cáo. Các hàng và nhóm thông tin của trang Cá nhân nằm trong `profile/widgets/profile_sections.dart`.
+
 Khi mở rộng một màn hình, giữ điều phối luồng và trạng thái cấp màn hình trong `presentation/`. Đặt form, danh sách, thẻ và hộp thoại có trách nhiệm riêng trong `widgets/` của tính năng. Giữ quy tắc nghiệp vụ và dữ liệu ở lớp hiện có của tính năng.
 
 - `auth/` tách màn hình đăng nhập, xác thực Supabase và lưu phiên thiết bị.

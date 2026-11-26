@@ -2,7 +2,6 @@ import "package:flutter/material.dart";
 
 import 'package:uth_room_booking/core/router/app_route.dart';
 import 'package:uth_room_booking/core/platform/app_permissions.dart';
-import "package:uth_room_booking/features/room/data/sample_rooms.dart";
 import "package:uth_room_booking/shared/layouts/bottom_navigation_bar.dart";
 import "package:uth_room_booking/shared/layouts/header.dart";
 import 'package:uth_room_booking/theme/app_colors.dart';
@@ -13,8 +12,12 @@ import '../../features/booking/data/asset_catalog.dart';
 import '../../features/booking/data/booking_store.dart';
 import '../../features/booking/data/sample_booking_data.dart';
 import '../../features/booking/models/booking.dart';
-import '../../features/booking/presentation/booking_history_page.dart';
 import '../../features/booking/presentation/schedule_view.dart';
+import '../../features/ai_chat/controllers/chat_controller.dart';
+import '../../features/ai_chat/data/mock_chat_repository.dart';
+import '../../features/ai_chat/data/technician_chat_repository.dart';
+import '../../features/ai_chat/presentation/chat_screen.dart';
+import '../../features/ai_chat/widgets/chat_avatar.dart';
 import '../../features/home/presentation/home_dashboard.dart';
 import '../../features/incident_report/presentation/incident_report_view.dart';
 import '../../features/incident_report/data/incident_report_store.dart';
@@ -111,6 +114,7 @@ class _MainShellState extends State<MainShell> {
   ({BookingCategory category, int sequence})? _bookingCategoryRequest;
   final _readNotices = <int>{};
   final _savedNotices = <int>{};
+  ChatController? _chat;
   late final _avatar = ProfileAvatarController(widget.avatarStorage);
   late final _assetCatalog = ShellCatalogController(
     load: () => widget.loadCatalog?.call(),
@@ -158,6 +162,7 @@ class _MainShellState extends State<MainShell> {
 
   @override
   void dispose() {
+    _chat?.dispose();
     if (widget.noticeStore != null && NoticeStore.supportsPush) {
       AppPermissions.onNoticeTap(null);
     }
@@ -361,7 +366,8 @@ class _MainShellState extends State<MainShell> {
                     ),
                   ),
                   _ShellTab.reports => _assetCatalog.content(
-                    (catalog) => IncidentReportView(
+                    (catalog) => IncidentReportView.fromCatalog(
+                      catalog: catalog,
                       avatar: _avatar.image,
                       name: widget.name,
                       id: widget.id,
@@ -370,30 +376,6 @@ class _MainShellState extends State<MainShell> {
                       store: widget.incidentStore,
                       loadCourses: widget.bookingStore?.courses,
                       active: _selectedTab == _ShellTab.reports,
-                      rooms: catalog?.rooms
-                          .where(
-                            (room) =>
-                                room.slots.any(
-                                  (slot) => slot != SlotStatus.maintenance,
-                                ) &&
-                                (widget.role != UserRole.teacher ||
-                                    !catalog.roomsUnavailableToTeachers
-                                        .contains(room.bookingKey)),
-                          )
-                          .map(
-                            (room) => (
-                              id: room.id,
-                              name: room.name,
-                              detail: room.detail.split(' · ').first,
-                            ),
-                          ),
-                      equipment: catalog?.equipment.map(
-                        (device) => (
-                          id: device.id,
-                          name: device.name,
-                          detail: device.detail,
-                        ),
-                      ),
                     ),
                   ),
                   _ShellTab.profile => ProfileView(
@@ -418,6 +400,12 @@ class _MainShellState extends State<MainShell> {
             ],
           ),
         ),
+        floatingActionButton:
+            _selectedTab == _ShellTab.home &&
+                !_assetsVisible &&
+                !_maintenanceVisible
+            ? ChatLauncher(onPressed: _openChat)
+            : null,
         bottomNavigationBar: AppBottomNavigationBar(
           items: [for (final tab in tabs) tab.item],
           currentIndex: selectedIndex,
@@ -482,33 +470,47 @@ class _MainShellState extends State<MainShell> {
     ]);
   }
 
-  Widget _buildHomeContent() => ListenableBuilder(
-    listenable: _bookings,
-    builder: (context, child) => HomeDashboard(
-      onNotifications: _openNotifications,
-      onRefresh: widget.bookingStore == null && widget.noticeStore == null
-          ? null
-          : _refreshHome,
-      counts: _bookings.homeCounts(),
-      notices: _notices,
-      availableRooms: widget.loadCatalog == null
-          ? sampleRooms.where((room) => room.status == 'Trống').length
-          : null,
-      onRooms: () => _selectTab(
-        _ShellTab.schedule,
-        bookingCategory: BookingCategory.rooms,
-      ),
-      onEquipment: () => _selectTab(
-        _ShellTab.schedule,
-        bookingCategory: BookingCategory.equipment,
-      ),
-      onSchedule: () =>
-          _selectTab(_ShellTab.schedule, bookingCategory: BookingCategory.mine),
-      onHistory: () => Navigator.of(context).push<void>(
-        MaterialPageRoute<void>(
-          builder: (_) => BookingHistoryPage(bookings: _bookings),
+  Future<void> _openChat() async {
+    final controller = _chat ??= ChatController(
+      _isTechnician
+          ? TechnicianChatRepository(
+              loadJobs:
+                  widget.technicianIncidentStore?.jobs ??
+                  () async => _workController.jobs,
+            )
+          : MockChatRepository(loadSchedule: _bookings.answerScheduleQuestion),
+    );
+    final destination = await Navigator.of(context).push<ChatDestination>(
+      MaterialPageRoute(
+        builder: (_) => ChatScreen(
+          name: widget.name,
+          controller: controller,
+          isTechnician: _isTechnician,
         ),
       ),
+    );
+    if (!mounted) return;
+    if (destination == ChatDestination.schedule) _openMySchedule();
+    if (destination == ChatDestination.reports) _selectTab(_ShellTab.reports);
+  }
+
+  void _openMySchedule() =>
+      _selectTab(_ShellTab.schedule, bookingCategory: BookingCategory.mine);
+
+  Widget _buildHomeContent() => HomeDashboard(
+    bookings: _bookings,
+    onNotifications: _openNotifications,
+    onRefresh: widget.bookingStore == null && widget.noticeStore == null
+        ? null
+        : _refreshHome,
+    notices: _notices,
+    usesSampleCatalog: widget.loadCatalog == null,
+    onRooms: () =>
+        _selectTab(_ShellTab.schedule, bookingCategory: BookingCategory.rooms),
+    onEquipment: () => _selectTab(
+      _ShellTab.schedule,
+      bookingCategory: BookingCategory.equipment,
     ),
+    onSchedule: _openMySchedule,
   );
 }

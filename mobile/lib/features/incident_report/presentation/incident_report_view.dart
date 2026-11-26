@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../../../shared/widgets/pill_tabs.dart';
 import '../../auth/models/user_role.dart';
+import '../../booking/data/asset_catalog.dart';
 import '../../booking/models/booking.dart';
 import '../../technician/data/demo_incident_queue.dart';
 import '../data/incident_report_store.dart';
@@ -27,6 +28,46 @@ class IncidentReportView extends StatefulWidget {
     this.loadCourses,
     this.active = true,
   });
+
+  factory IncidentReportView.fromCatalog({
+    required AssetCatalog? catalog,
+    required String name,
+    required String id,
+    required UserRole role,
+    required DemoIncidentQueue queue,
+    ImageProvider? avatar,
+    IncidentReportStore? store,
+    Future<List<CourseSection>> Function()? loadCourses,
+    bool active = true,
+  }) => IncidentReportView(
+    name: name,
+    id: id,
+    role: role,
+    queue: queue,
+    avatar: avatar,
+    store: store,
+    loadCourses: loadCourses,
+    active: active,
+    rooms: catalog?.rooms
+        .where(
+          (room) =>
+              room.slots.any((slot) => slot != SlotStatus.maintenance) &&
+              (role != UserRole.teacher ||
+                  !catalog.roomsUnavailableToTeachers.contains(
+                    room.bookingKey,
+                  )),
+        )
+        .map(
+          (room) => (
+            id: room.id,
+            name: room.name,
+            detail: room.detail.split(' · ').first,
+          ),
+        ),
+    equipment: catalog?.equipment.map(
+      (device) => (id: device.id, name: device.name, detail: device.detail),
+    ),
+  );
 
   final String name;
   final String id;

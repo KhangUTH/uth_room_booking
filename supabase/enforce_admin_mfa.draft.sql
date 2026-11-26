@@ -17,10 +17,7 @@ create or replace function public.uth_admin_profile_read_allowed()
 returns boolean language sql stable security definer set search_path = ''
 as $$
   select coalesce((select auth.jwt() ->> 'aal') = 'aal2', false)
-    and exists (
-      select 1 from public.profiles
-      where id = (select auth.uid()) and role = 'admin' and is_active
-    );
+    and private.has_active_admin_web_session();
 $$;
 
 create or replace function public.uth_incident_actor_role()
@@ -28,7 +25,7 @@ returns text language sql stable security definer set search_path = ''
 as $$
   select role::text from public.profiles
   where id = (select auth.uid()) and is_active
-    and (role <> 'admin' or coalesce((select auth.jwt() ->> 'aal') = 'aal2', false));
+    and (role <> 'admin' or (select public.uth_admin_profile_read_allowed()));
 $$;
 
 create or replace function public.admin_user_roles()

@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../../auth/models/user_role.dart';
+import '../data/asset_catalog.dart';
 import '../data/booking_store.dart';
 import '../data/sample_booking_data.dart';
 import '../models/booking.dart';
@@ -72,6 +73,35 @@ class BookingController extends ChangeNotifier {
     return (upcoming: upcoming, inUse: inUse, used: used);
   }
 
+  List<BookingAsset> assetsFor(AssetCatalog? catalog, {required bool isRoom}) {
+    if (!isRoom) return catalog?.equipment ?? sampleBookingEquipment;
+    final rooms = catalog?.rooms ?? sampleBookingRooms;
+    if (role != UserRole.teacher) return rooms;
+    final blockedRooms =
+        catalog?.roomsUnavailableToTeachers ?? {sampleLibraryRoomName};
+    return rooms
+        .where((room) => !blockedRooms.contains(room.bookingKey))
+        .toList();
+  }
+
+  bool hasStarted(DateTime date, int index) =>
+      store?.hasStarted(date, index) ?? date.isBefore(today);
+
+  int availableCount(
+    DateTime date,
+    List<BookingAsset> assets,
+    int index, {
+    required bool isRoom,
+  }) {
+    if (hasStarted(date, index) ||
+        (isRoom && hasStudentRoomBooking(date, index))) {
+      return 0;
+    }
+    return assets
+        .where((asset) => statusFor(date, asset, index) == SlotStatus.free)
+        .length;
+  }
+
   Future<void> refreshHistory() async {
     final source = store;
     if (source == null) return;
@@ -94,6 +124,56 @@ class BookingController extends ChangeNotifier {
   String? savedBookingId(int index) => _bookings[index].id;
 
   Booking bookingAt(int index) => _bookings[index].booking;
+
+  Future<List<Booking>> answerScheduleQuestion(
+    ScheduleQuestion question,
+  ) async {
+    final source = store;
+    final rows = source == null ? _bookings : await source.history();
+    final now = source == null ? DateTime.now() : BookingStore.campusNow;
+    final day = DateTime(now.year, now.month, now.day);
+    final campusClock = DateTime(
+      now.year,
+      now.month,
+      now.day,
+      now.hour,
+      now.minute,
+      now.second,
+    );
+    final target = question == ScheduleQuestion.tomorrow
+        ? DateTime(now.year, now.month, now.day + 1)
+        : day;
+    final results = <Booking>[];
+    for (final entry in rows) {
+      final booking = entry.booking;
+      final slot = booking.slot;
+      if (slot.index < 0 || slot.index >= bookingStartTimes.length) continue;
+      if (question == ScheduleQuestion.next) {
+        if (!booking.status.holdsSlot) continue;
+        final parts = bookingStartTimes[slot.index].split(':');
+        final start = DateTime(
+          slot.date.year,
+          slot.date.month,
+          slot.date.day,
+          int.parse(parts.first),
+          int.parse(parts.last),
+        );
+        if (!start.isAfter(campusClock)) continue;
+      } else if (slot.date != target ||
+          booking.status == BookingStatus.cancelled ||
+          booking.status == BookingStatus.rejected) {
+        continue;
+      }
+      results.add(booking);
+    }
+    results.sort((a, b) {
+      final dateOrder = a.slot.date.compareTo(b.slot.date);
+      return dateOrder == 0 ? a.slot.index.compareTo(b.slot.index) : dateOrder;
+    });
+    return question == ScheduleQuestion.next
+        ? results.take(1).toList()
+        : results;
+  }
 
   Future<List<CourseSection>>? liveCoursesFor(BookingAsset asset) =>
       asset.capacity > 0 && role == UserRole.teacher ? store?.courses() : null;

@@ -85,6 +85,16 @@ test('recovery stays available to non-admin sessions while profile check is pend
   assert.doesNotMatch(html, /Đang kiểm tra quyền truy cập/);
 });
 
+test('a second admin device needs confirmation and the signed-out device sees a notice', () => {
+  const context = { ...baseContext, isAdmin: false, switchRequired: true };
+  const html = renderPage(context);
+  assert.match(html, /Chuyển sang thiết bị này/);
+  assert.match(html, /Hủy và quay lại đăng nhập/);
+  assert.doesNotMatch(renderGuard(context), /ADMIN_CONTENT/);
+  const deviceNotice = 'Tài khoản đã chuyển sang thiết bị khác. Bạn đã được đăng xuất.';
+  assert.ok(renderPage({ ...context, session: null, switchRequired: false, deviceNotice }).includes(deviceNotice));
+});
+
 test('admin with password-only session is sent to MFA and cannot open management pages', () => {
   const context = { ...baseContext, isAdmin: false, mfaRequired: true };
   assert.match(renderPage(context), /Xác minh hai bước/);

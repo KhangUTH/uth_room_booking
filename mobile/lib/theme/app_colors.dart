@@ -13,4 +13,8 @@ class AppColors {
   static const textDark = Color(0xFF1B2B2A);
   static const textMuted = Color(0xFF6B7B7A);
   static const hint = Color(0xFF9AA8A7);
+  static const chatPrimary = Color(0xFF00706F);
+  static const chatBackground = Color(0xFFF4F9F8);
+  static const chatBorder = Color(0xFFDDEBE8);
+  static const chatTint = Color(0xFFD6EDEA);
 }

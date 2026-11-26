@@ -49,10 +49,16 @@ extension _BookingStatusStyle on BookingStatus {
 }
 
 class BookingHistoryCard extends StatelessWidget {
-  const BookingHistoryCard({super.key, required this.booking, this.onCancel});
+  const BookingHistoryCard({
+    super.key,
+    required this.booking,
+    this.onCancel,
+    this.onDetails,
+  });
 
   final Booking booking;
   final VoidCallback? onCancel;
+  final VoidCallback? onDetails;
 
   @override
   Widget build(BuildContext context) {
@@ -137,40 +143,50 @@ class BookingHistoryCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 10),
-          DecoratedBox(
-            decoration: BoxDecoration(
-              color: status.background.withValues(alpha: .42),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: _line),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                spacing: 6,
-                children: [
-                  Text(
-                    'Chi tiết ca ${bookingStartTimes[slot.index]}',
-                    style: TextStyle(
-                      color: status.color,
-                      fontWeight: FontWeight.w700,
+          if (onDetails != null)
+            Align(
+              alignment: AlignmentDirectional.centerEnd,
+              child: TextButton(
+                onPressed: onDetails,
+                child: const Text('Xem chi tiết'),
+              ),
+            )
+          else ...[
+            const SizedBox(height: 10),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                color: status.background.withValues(alpha: .42),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: _line),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  spacing: 6,
+                  children: [
+                    Text(
+                      'Chi tiết ca ${bookingStartTimes[slot.index]}',
+                      style: TextStyle(
+                        color: status.color,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
-                  ),
-                  if (section != null) ...[
-                    _bookingDetail('Mã học phần', section.code),
-                    _bookingDetail('Lớp học phần', section.name),
-                  ] else
-                    _bookingDetail(
-                      'Loại đăng ký',
-                      isRoom ? 'Phòng máy' : 'Thiết bị',
-                    ),
-                  if (booking.studentCount case final count?)
-                    _bookingDetail('Số sinh viên', '$count'),
-                ],
+                    if (section != null) ...[
+                      _bookingDetail('Mã học phần', section.code),
+                      _bookingDetail('Lớp học phần', section.name),
+                    ] else
+                      _bookingDetail(
+                        'Loại đăng ký',
+                        isRoom ? 'Phòng máy' : 'Thiết bị',
+                      ),
+                    if (booking.studentCount case final count?)
+                      _bookingDetail('Số sinh viên', '$count'),
+                  ],
+                ),
               ),
             ),
-          ),
+          ],
           if (onCancel != null && status == BookingStatus.pending)
             Align(
               alignment: Alignment.centerRight,

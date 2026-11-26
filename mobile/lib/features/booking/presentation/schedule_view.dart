@@ -199,20 +199,6 @@ class _ScheduleViewState extends State<ScheduleView> {
     if (_bookings.store != null) _refresh();
   }
 
-  List<BookingAsset> get _visibleAssets {
-    final catalog = widget.catalog;
-    if (_category == BookingCategory.equipment) {
-      return catalog?.equipment ?? sampleBookingEquipment;
-    }
-    final rooms = catalog?.rooms ?? sampleBookingRooms;
-    if (_bookings.role != UserRole.teacher) return rooms;
-    final blockedRooms =
-        catalog?.roomsUnavailableToTeachers ?? {sampleLibraryRoomName};
-    return rooms
-        .where((room) => !blockedRooms.contains(room.bookingKey))
-        .toList();
-  }
-
   Future<void> _openBooking(BookingAsset asset) async {
     if (_busy || _saving || _loadFailed) return;
     if (asset.capacity > 0 &&
@@ -300,26 +286,12 @@ class _ScheduleViewState extends State<ScheduleView> {
     }
   }
 
-  bool _hasStarted(int index) =>
-      _bookings.store?.hasStarted(_date, index) ?? _date.isBefore(_today);
-
-  int _availableCount(List<BookingAsset> assets, int index) =>
-      _hasStarted(index) || _roomSlotTaken(index)
-      ? 0
-      : assets
-            .where(
-              (asset) =>
-                  _bookings.statusFor(_date, asset, index) == SlotStatus.free,
-            )
-            .length;
-
-  bool _roomSlotTaken(int index) =>
-      _category == BookingCategory.rooms &&
-      _bookings.hasStudentRoomBooking(_date, index);
-
   @override
   Widget build(BuildContext context) {
-    final assets = _isMine ? const <BookingAsset>[] : _visibleAssets;
+    final isRoom = _category == BookingCategory.rooms;
+    final assets = _isMine
+        ? const <BookingAsset>[]
+        : _bookings.assetsFor(widget.catalog, isRoom: isRoom);
     final bookingIndices = _isMine
         ? _bookings.indicesFor(
             _showAllBookingDates ? null : _date,
@@ -378,11 +350,18 @@ class _ScheduleViewState extends State<ScheduleView> {
               else if (_hasVisibleData)
                 BookingAssetList(
                   assets: assets,
-                  isRoom: _category == BookingCategory.rooms,
+                  isRoom: isRoom,
                   slotIndex: _slotIndex,
-                  past: _hasStarted(_slotIndex),
-                  roomSlotTaken: _roomSlotTaken(_slotIndex),
-                  availableCount: (index) => _availableCount(assets, index),
+                  past: _bookings.hasStarted(_date, _slotIndex),
+                  roomSlotTaken:
+                      isRoom &&
+                      _bookings.hasStudentRoomBooking(_date, _slotIndex),
+                  availableCount: (index) => _bookings.availableCount(
+                    _date,
+                    assets,
+                    index,
+                    isRoom: isRoom,
+                  ),
                   statusFor: (asset) =>
                       _bookings.statusFor(_date, asset, _slotIndex),
                   onSlotSelected: (index) => setState(() => _slotIndex = index),

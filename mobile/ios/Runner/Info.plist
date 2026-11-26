@@ -28,6 +28,10 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>Cho phép dùng camera để chụp ảnh minh chứng cho báo cáo sự cố.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>UTH Lab cần micro để nhập câu hỏi bằng giọng nói trong UTH AI.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>UTH Lab chuyển lời nói của bạn thành văn bản trong ô chat UTH AI.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Cho phép chọn ảnh minh chứng từ thư viện cho báo cáo sự cố.</string>
 	<key>UIApplicationSceneManifest</key>

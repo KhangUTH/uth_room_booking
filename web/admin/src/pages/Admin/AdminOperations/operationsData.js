@@ -61,6 +61,10 @@ function exactCount(client, table) {
   return client.from(table).select("id", { head: true, count: "exact" });
 }
 
+export function countBookingsSince(client, since, signal) {
+  return countRows(exactCount(client, bookingTable).gt("created_at", since), signal);
+}
+
 async function pageOf(query, page, signal) {
   const start = (page - 1) * pageSize;
   const { data, count, error } = await query.order("created_at", { ascending: false }).order("id")

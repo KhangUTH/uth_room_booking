@@ -18,6 +18,8 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
+    private val settingsRequestCode = 12061
+    private var settingsResult: MethodChannel.Result? = null
     private var notificationChannel: MethodChannel? = null
 
     override fun onNewIntent(intent: Intent) {
@@ -41,6 +43,13 @@ class MainActivity : FlutterActivity() {
             .setMethodCallHandler { call, result ->
                 when (call.method) {
                     "open" -> result.success(openAppSettings())
+                    "openAndWait" -> {
+                        if (settingsResult != null || !openAppSettings(settingsRequestCode)) {
+                            result.success(false)
+                        } else {
+                            settingsResult = result
+                        }
+                    }
                     "takeNoticeId" -> {
                         val id = intent.getStringExtra("uth_notice_id")?.toLongOrNull()
                         intent.removeExtra("uth_notice_id")
@@ -64,7 +73,9 @@ class MainActivity : FlutterActivity() {
                                 .areNotificationsEnabled()) "granted" else "denied",
                         "camera" to if (checkSelfPermission(Manifest.permission.CAMERA) ==
                                 PackageManager.PERMISSION_GRANTED) "granted" else "denied",
-                        "photos" to "notRequired"
+                        "photos" to "notRequired",
+                        "microphone" to if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) ==
+                                PackageManager.PERMISSION_GRANTED) "granted" else "denied"
                     ))
                     "requestOnFirstLaunch" -> {
                         requestFirstLaunchPermissions()
@@ -115,13 +126,23 @@ class MainActivity : FlutterActivity() {
         return builder.setSmallIcon(R.drawable.ic_notification)
     }
 
-    private fun openAppSettings(): Boolean {
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == settingsRequestCode) {
+            settingsResult?.success(true)
+            settingsResult = null
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun openAppSettings(requestCode: Int? = null): Boolean {
         val intent = Intent(
             Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
             Uri.fromParts("package", packageName, null)
         )
         return try {
-            startActivity(intent)
+            if (requestCode == null) startActivity(intent)
+            else startActivityForResult(intent, requestCode)
             true
         } catch (_: ActivityNotFoundException) {
             false

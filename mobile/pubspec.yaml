@@ -36,6 +36,7 @@ dependencies:
   cupertino_icons: ^2.0.0
   supabase_flutter: ^2.18.3
   image_picker: ^1.2.4
+  speech_to_text: ^7.5.0
   http: ^1.6.0
   shared_preferences: ^2.5.6
   flutter_secure_storage: 11.2.0
@@ -68,6 +69,8 @@ flutter:
     - assets/images/splash/
     - assets/images/logo/
     - assets/images/illustrations/
+    - assets/images/ai_chat/uth_ai_avatar.png
+    - assets/images/ai_chat/uth_ai_glyph.png
   # To add assets to your application, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg

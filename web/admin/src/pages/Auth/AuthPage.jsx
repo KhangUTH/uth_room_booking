@@ -10,7 +10,7 @@ import "./AuthPage.css";
 export default function AuthPage() {
   const { pathname, state } = useLocation();
   const navigate = useNavigate();
-  const { session, loading, profileLoading, isAdmin, mfaRequired, accessError, refreshProfile, signIn, signOut } = useAuth();
+  const { session, loading, profileLoading, isAdmin, mfaRequired, switchRequired, switchDevice, deviceNotice, accessError, refreshProfile, signIn, signOut } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -21,11 +21,13 @@ export default function AuthPage() {
   const [notice, setNotice] = useState("");
   const [captchaToken, setCaptchaToken] = useState("");
   const [captchaVersion, setCaptchaVersion] = useState(0);
+  const [captchaEmail, setCaptchaEmail] = useState("");
   const forgot = pathname === "/forgot-password";
   const reset = pathname === "/reset-password";
   const invalidRecovery = reset && !session;
-  const captchaSiteKey = !reset ? import.meta.env.VITE_TURNSTILE_SITE_KEY : "";
-  const captchaPending = Boolean(captchaSiteKey && !captchaToken);
+  const captchaRequired = !forgot && !reset && Boolean(captchaEmail) && captchaEmail === email.trim().toLowerCase();
+  const captchaSiteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY;
+  const captchaPending = captchaRequired && !captchaToken;
   const from = state?.from;
   const destination = from?.pathname?.startsWith("/") && !from.pathname.startsWith("//")
     && !["/login", "/forgot-password", "/reset-password"].includes(from.pathname)
@@ -50,6 +52,21 @@ export default function AuthPage() {
     }
   }
 
+  async function confirmDeviceSwitch() {
+    if (requestInFlight.current) return;
+    requestInFlight.current = true;
+    setPending(true);
+    setError("");
+    try {
+      await switchDevice();
+    } catch (requestError) {
+      setError(authErrorMessage(requestError));
+    } finally {
+      requestInFlight.current = false;
+      setPending(false);
+    }
+  }
+
   async function handleSubmit(event) {
     event.preventDefault();
     if (requestInFlight.current || !isSupabaseConfigured || invalidRecovery || captchaPending) return;
@@ -65,21 +82,24 @@ export default function AuthPage() {
       if (forgot) {
         const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
           redirectTo: `${window.location.origin}/reset-password`,
-          captchaToken: captchaToken || undefined,
         });
         if (resetError) throw resetError;
         setNotice("Nếu email này có tài khoản, bạn sẽ nhận được liên kết đặt lại mật khẩu. Vui lòng kiểm tra cả thư mục spam.");
       } else if (reset) {
         const { error: updateError } = await supabase.auth.updateUser({ password });
         if (updateError) throw updateError;
-        navigate("/", { replace: true });
+        await signOut();
+        navigate("/login", { replace: true });
       } else {
-        await signIn(email.trim(), password, captchaToken || undefined);
+        await signIn(email.trim(), password, captchaRequired ? captchaToken : undefined);
       }
     } catch (requestError) {
+      if (["captcha_required", "captcha_failed"].includes(requestError?.code)) {
+        setCaptchaEmail(email.trim().toLowerCase());
+      }
       setError(authErrorMessage(requestError));
     } finally {
-      if (captchaSiteKey) {
+      if (captchaRequired) {
         setCaptchaToken("");
         setCaptchaVersion((value) => value + 1);
       }
@@ -90,7 +110,7 @@ export default function AuthPage() {
 
   const denied = Boolean(session) && !forgot && !reset;
   const verifyingMfa = denied && mfaRequired;
-  const title = forgot ? "Quên mật khẩu?" : reset ? "Đặt mật khẩu mới" : verifyingMfa ? "Xác minh hai bước" : denied ? "Chưa thể truy cập" : "Đăng nhập quản trị";
+  const title = forgot ? "Quên mật khẩu?" : reset ? "Đặt mật khẩu mới" : verifyingMfa ? "Xác minh hai bước" : switchRequired ? "Chuyển thiết bị?" : denied ? "Chưa thể truy cập" : "Đăng nhập quản trị";
   const description = forgot
     ? "Nhập email tài khoản để nhận hướng dẫn khôi phục mật khẩu."
     : reset ? "Chọn mật khẩu mới để tiếp tục sử dụng hệ thống."
@@ -126,9 +146,13 @@ export default function AuthPage() {
           {!isSupabaseConfigured && <p className="auth-message auth-error" role="alert">Chưa cấu hình kết nối Supabase. Vui lòng thiết lập VITE_SUPABASE_URL và VITE_SUPABASE_PUBLISHABLE_KEY trong .env.local rồi khởi động lại ứng dụng.</p>}
           {invalidRecovery && <p className="auth-message auth-error" role="alert">Liên kết đặt lại mật khẩu không hợp lệ hoặc đã hết hạn. <Link to="/forgot-password">Yêu cầu liên kết mới</Link>.</p>}
           {error && <p className="auth-message auth-error" role="alert">{error}</p>}
-          {notice && <p className="auth-message auth-success" role="status">{notice}</p>}
+          {(notice || deviceNotice) && <p className="auth-message auth-success" role="status">{notice || deviceNotice}</p>}
 
-          {verifyingMfa ? <AdminMfaForm client={supabase} onSignOut={switchAccount} signingOut={pending} /> : denied ? <div className="auth-access-denied">
+          {verifyingMfa ? <AdminMfaForm client={supabase} onSignOut={switchAccount} signingOut={pending} /> : switchRequired && denied ? <div className="auth-access-denied">
+            <p className="auth-description">Tài khoản đang mở trên thiết bị khác. Nếu tiếp tục, thiết bị đó sẽ tự đăng xuất.</p>
+            <button className="auth-submit" type="button" onClick={confirmDeviceSwitch} disabled={pending}>{pending ? "Đang xử lý…" : "Chuyển sang thiết bị này"}</button>
+            <button className="auth-secondary" type="button" onClick={switchAccount} disabled={pending}>Hủy và quay lại đăng nhập</button>
+          </div> : denied ? <div className="auth-access-denied">
             <p className="auth-message auth-error" role="alert">{accessError}</p>
             <button className="auth-submit" type="button" onClick={refreshProfile} disabled={pending}>Kiểm tra lại quyền truy cập</button>
             <button className="auth-secondary" type="button" onClick={switchAccount} disabled={pending}>{pending ? "Đang đăng xuất…" : "Đăng xuất và đổi tài khoản"}</button>
@@ -138,7 +162,7 @@ export default function AuthPage() {
             <fieldset disabled={pending || !isSupabaseConfigured || invalidRecovery}>
               {!reset && <div className="auth-field">
                 <label htmlFor="email">Địa chỉ email</label>
-                <input id="email" name="email" type="email" autoComplete="username" placeholder="email@uth.edu.vn" value={email} onChange={(event) => setEmail(event.target.value)} required autoFocus />
+                <input id="email" name="email" type="email" autoComplete="username" placeholder="email@uth.edu.vn" value={email} onChange={(event) => { setEmail(event.target.value); setCaptchaToken(""); setCaptchaVersion((value) => value + 1); }} required autoFocus />
               </div>}
               {!forgot && <div className="auth-field">
                 <label htmlFor="password">{reset ? "Mật khẩu mới" : "Mật khẩu"}</label>
@@ -152,7 +176,9 @@ export default function AuthPage() {
                 <input id="confirm-password" name="confirmPassword" type={showPassword ? "text" : "password"} autoComplete="new-password" minLength={8} value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} required />
               </div>}
               {!forgot && !reset && <div className="auth-options"><Link to="/forgot-password">Quên mật khẩu?</Link></div>}
-              {captchaSiteKey && <AuthCaptcha key={captchaVersion} siteKey={captchaSiteKey} onToken={setCaptchaToken} />}
+              {captchaRequired && (captchaSiteKey
+                ? <AuthCaptcha key={captchaVersion} siteKey={captchaSiteKey} onToken={setCaptchaToken} />
+                : <p className="auth-message auth-error" role="alert">{authErrorMessage({ code: "captcha_unavailable" })}</p>)}
               <button className="auth-submit" type="submit" disabled={captchaPending} aria-busy={pending}>{pending ? "Đang xử lý…" : forgot ? "Gửi liên kết khôi phục" : reset ? "Lưu mật khẩu mới" : "Đăng nhập"}</button>
             </fieldset>
           </form>

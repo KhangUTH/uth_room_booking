@@ -10,6 +10,8 @@ export function authErrorMessage(error) {
     mfa_verification_failed: "Mã xác thực không đúng. Vui lòng thử mã hiện tại.",
     mfa_challenge_expired: "Yêu cầu xác minh đã hết hạn. Vui lòng thử lại.",
     captcha_failed: "Xác minh chống bot không thành công. Vui lòng thử lại.",
+    captcha_required: "Vui lòng xác minh bảo mật để tiếp tục đăng nhập.",
+    captcha_unavailable: "Tạm thời không thể xác minh bảo mật. Vui lòng thử lại sau.",
     session_not_found: "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.",
     user_banned: "Tài khoản đã bị khóa. Vui lòng liên hệ quản trị viên.",
   };

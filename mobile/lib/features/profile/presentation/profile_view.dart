@@ -5,14 +5,12 @@ import '../../auth/models/user_role.dart';
 import '../../notifications/data/notice_store.dart';
 import '../data/profile_contact_store.dart';
 import '../widgets/edit_profile_dialog.dart';
+import '../widgets/profile_sections.dart';
 import 'profile_support_page.dart';
 
 import 'package:uth_room_booking/core/router/app_route.dart';
 import 'package:uth_room_booking/theme/app_colors.dart';
 
-const _pale = Color(0xFFDCEFEF);
-const _line = Color(0xFFD6E6E7);
-const _muted = Color(0xFF526E74);
 const _red = Color(0xFFCB313B);
 
 class ProfileView extends StatefulWidget {
@@ -199,7 +197,7 @@ class _ProfileViewState extends State<ProfileView> {
     children: [
       Row(
         children: [
-          const Expanded(child: _SectionTitle('Thông tin cá nhân')),
+          const Expanded(child: ProfileSectionTitle('Thông tin cá nhân')),
           TextButton.icon(
             onPressed: _updatingProfile ? null : _editProfile,
             icon: const Icon(Icons.edit_outlined, size: 15),
@@ -208,7 +206,7 @@ class _ProfileViewState extends State<ProfileView> {
           ),
         ],
       ),
-      _ProfileCard(
+      ProfileCard(
         rows: [
           _info(Icons.badge_outlined, _idLabel, widget.id),
           if (widget.role != UserRole.technician)
@@ -218,11 +216,11 @@ class _ProfileViewState extends State<ProfileView> {
         ],
       ),
       const SizedBox(height: 16),
-      const _SectionTitle('Cài đặt'),
+      const ProfileSectionTitle('Cài đặt'),
       const SizedBox(height: 8),
-      _ProfileCard(
+      ProfileCard(
         rows: [
-          _ProfileRow(
+          ProfileRow(
             icon: Icons.notifications_none,
             title: 'Nhận thông báo',
             trailing: Switch(
@@ -235,24 +233,32 @@ class _ProfileViewState extends State<ProfileView> {
                 ? () => _setNotificationPreference(!_notifications)
                 : null,
           ),
-          _ProfileRow(
+          ProfileRow(
             icon: Icons.lock_outline,
             title: 'Đổi mật khẩu',
             onTap: _changePassword,
-            trailing: const Icon(Icons.chevron_right, color: _muted, size: 18),
+            trailing: const Icon(
+              Icons.chevron_right,
+              color: profileMutedColor,
+              size: 18,
+            ),
           ),
-          _ProfileRow(
+          ProfileRow(
             icon: Icons.admin_panel_settings_outlined,
             title: 'Cài đặt cấp quyền',
-            trailing: const Icon(Icons.chevron_right, color: _muted, size: 18),
+            trailing: const Icon(
+              Icons.chevron_right,
+              color: profileMutedColor,
+              size: 18,
+            ),
             onTap: () => Navigator.pushNamed(context, AppRoute.appPermissions),
           ),
         ],
       ),
       const SizedBox(height: 16),
-      const _SectionTitle('Hỗ trợ'),
+      const ProfileSectionTitle('Hỗ trợ'),
       const SizedBox(height: 8),
-      _ProfileCard(
+      ProfileCard(
         rows: [
           _supportAction(Icons.help_outline),
           _supportAction(Icons.description_outlined, terms: true),
@@ -277,12 +283,12 @@ class _ProfileViewState extends State<ProfileView> {
       const Text(
         'Phiên bản 1.0.0',
         textAlign: TextAlign.center,
-        style: TextStyle(color: _muted, fontSize: 11),
+        style: TextStyle(color: profileMutedColor, fontSize: 11),
       ),
     ],
   );
 
-  Widget _info(IconData icon, String label, String value) => _ProfileRow(
+  Widget _info(IconData icon, String label, String value) => ProfileRow(
     icon: icon,
     title: value.isEmpty ? 'Chưa cập nhật' : value,
     caption: label,
@@ -304,7 +310,7 @@ class _ProfileViewState extends State<ProfileView> {
       ..showSnackBar(const SnackBar(content: Text('Đã đổi mật khẩu.')));
   }
 
-  Widget _supportAction(IconData icon, {bool terms = false}) => _ProfileRow(
+  Widget _supportAction(IconData icon, {bool terms = false}) => ProfileRow(
     icon: icon,
     title: terms ? ProfileSupportPage.termsTitle : ProfileSupportPage.helpTitle,
     onTap: () => Navigator.of(context).push<void>(
@@ -312,101 +318,10 @@ class _ProfileViewState extends State<ProfileView> {
         builder: (_) => ProfileSupportPage(role: widget.role, terms: terms),
       ),
     ),
-    trailing: const Icon(Icons.chevron_right, color: _muted, size: 18),
-  );
-}
-
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) => Text(
-    text,
-    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-  );
-}
-
-class _ProfileCard extends StatelessWidget {
-  const _ProfileCard({required this.rows});
-
-  final List<Widget> rows;
-
-  @override
-  Widget build(BuildContext context) => Material(
-    color: Colors.white,
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(30),
-      side: const BorderSide(color: _line),
-    ),
-    clipBehavior: Clip.antiAlias,
-    child: Column(
-      children: [
-        for (var index = 0; index < rows.length; index++) ...[
-          if (index > 0) const Divider(height: 1, thickness: 1, color: _line),
-          rows[index],
-        ],
-      ],
-    ),
-  );
-}
-
-class _ProfileRow extends StatelessWidget {
-  const _ProfileRow({
-    required this.icon,
-    required this.title,
-    this.caption,
-    this.trailing,
-    this.onTap,
-  });
-
-  final IconData icon;
-  final String title;
-  final String? caption;
-  final Widget? trailing;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) => InkWell(
-    onTap: onTap,
-    child: ConstrainedBox(
-      constraints: const BoxConstraints(minHeight: 52),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: Row(
-          children: [
-            Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                color: _pale,
-                borderRadius: BorderRadius.circular(9),
-              ),
-              child: Icon(icon, size: 17, color: AppColors.primary),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (caption case final label?)
-                    Text(
-                      label,
-                      style: const TextStyle(color: _muted, fontSize: 11),
-                    ),
-                  Text(title, style: const TextStyle(fontSize: 13)),
-                ],
-              ),
-            ),
-            if (trailing case final widget?) ...[
-              const SizedBox(width: 8),
-              widget,
-            ],
-          ],
-        ),
-      ),
+    trailing: const Icon(
+      Icons.chevron_right,
+      color: profileMutedColor,
+      size: 18,
     ),
   );
 }

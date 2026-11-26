@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 abstract final class AppPermissions {
@@ -7,7 +8,11 @@ abstract final class AppPermissions {
     await _invoke('requestOnFirstLaunch');
   }
 
-  static Future<bool> openSettings() => _invoke('open');
+  static Future<bool> openSettings({bool waitForReturn = false}) => _invoke(
+    waitForReturn && defaultTargetPlatform == TargetPlatform.android
+        ? 'openAndWait'
+        : 'open',
+  );
 
   static void onNoticeTap(Future<void> Function()? callback) {
     _channel.setMethodCallHandler(
