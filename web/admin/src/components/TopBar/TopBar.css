@@ -25,3 +25,92 @@
     font-size: 20px;
     cursor: pointer;
 }
+
+.topbar-notices {
+    position: relative;
+}
+
+.topbar-bell {
+    position: relative;
+    display: grid;
+    place-items: center;
+    list-style: none;
+}
+
+.topbar-bell::-webkit-details-marker { display: none; }
+
+.topbar-notice-count {
+    position: absolute;
+    inset: -4px -5px auto auto;
+    min-width: 19px;
+    padding: 2px 4px;
+    border: 2px solid white;
+    border-radius: 20px;
+    background: #ba443c;
+    color: white;
+    font-size: 11px;
+    text-align: center;
+}
+
+.topbar-notice-panel {
+    position: absolute;
+    z-index: 20;
+    inset: calc(100% + 10px) -38px auto auto;
+    width: min(330px, calc(100vw - 30px));
+    padding: 12px;
+    border: 1px solid #d1e2e2;
+    border-radius: 12px;
+    background: white;
+    color: #173b3c;
+    box-shadow: 0 8px 24px #17424424;
+}
+
+.topbar-notice-panel:not(.topbar-account-panel) {
+    box-sizing: border-box;
+    width: min(410px, calc(100vw - 48px));
+    padding: 16px 18px;
+    border-radius: 16px;
+}
+
+.topbar-notice-panel h2 { margin-bottom: 8px; font-size: 18px; }
+.topbar-notice-panel:not(.topbar-account-panel) h2 { margin-bottom: 12px; }
+.topbar-notice-panel ul { list-style: none; max-height: min(420px, 55vh); overflow-y: auto; }
+.topbar-notice-panel li + li { border-top: 1px solid #252d3029; }
+
+.topbar-notice-panel li a {
+    display: grid;
+    gap: 6px;
+    padding: 12px 8px;
+    border-radius: 8px;
+    color: inherit;
+    text-decoration: none;
+    overflow-wrap: anywhere;
+}
+
+.topbar-notice-panel li a:hover { background: #edf7f7; }
+.topbar-notice-panel li span:not(.admin-status) { font-size: 13px; color: #4c6667; }
+.topbar-notice-all { display: inline-block; margin-top: 14px; color: #066b6e; }
+
+.topbar-account-panel {
+    inset-inline-end: 0;
+    width: min(270px, calc(100vw - 30px));
+    overflow-wrap: anywhere;
+}
+
+.topbar-account-panel p { margin-bottom: 8px; }
+.topbar-account-role { color: #066b6e; font-size: 13px; font-weight: 700; }
+
+.topbar-account-panel button {
+    display: block;
+    width: 100%;
+    padding: 8px 6px;
+    text-align: left;
+    color: #07595c;
+    background: white;
+    border: 0;
+    border-top: 1px solid #e0e9e9;
+    cursor: pointer;
+}
+
+.topbar-account-panel button:hover:not(:disabled) { background: #edf7f7; }
+.topbar-account-panel button:disabled { opacity: .6; cursor: not-allowed; }

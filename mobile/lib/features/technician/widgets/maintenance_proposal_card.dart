@@ -1,11 +1,33 @@
 import 'package:flutter/material.dart';
 
 import '../../../theme/app_colors.dart';
-import '../../booking/models/booking.dart';
 import '../models/maintenance_proposal.dart';
 import 'maintenance_proposal_details_sheet.dart';
 import 'task_details.dart';
 import 'technician_panel.dart';
+
+void showMaintenanceProposalDetails(
+  BuildContext context,
+  MaintenanceProposal proposal,
+) {
+  showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    showDragHandle: true,
+    builder: (context) => MaintenanceProposalDetailsSheet(
+      proposal: proposal,
+      statusColor: _statusColor(proposal.status),
+    ),
+  );
+}
+
+Color _statusColor(MaintenanceStatus status) => switch (status) {
+  MaintenanceStatus.pending => const Color(0xFF815200),
+  MaintenanceStatus.approved => const Color(0xFF126247),
+  MaintenanceStatus.rejected => const Color(0xFFAE251A),
+  MaintenanceStatus.cancelled => AppColors.textMuted,
+};
 
 class MaintenanceProposalCard extends StatelessWidget {
   const MaintenanceProposalCard({
@@ -19,26 +41,10 @@ class MaintenanceProposalCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final schedule = proposal.schedule;
-    final color = switch (proposal.status) {
-      MaintenanceStatus.pending => const Color(0xFF815200),
-      MaintenanceStatus.approved => const Color(0xFF126247),
-      MaintenanceStatus.rejected => const Color(0xFFAE251A),
-      MaintenanceStatus.cancelled => AppColors.textMuted,
-    };
+    final color = _statusColor(proposal.status);
     return TechnicianPanel(
       child: InkWell(
-        onTap: () => showModalBottomSheet<void>(
-          context: context,
-          isScrollControlled: true,
-          useSafeArea: true,
-          showDragHandle: true,
-          builder: (context) => MaintenanceProposalDetailsSheet(
-            proposal: proposal,
-            statusColor: color,
-            scheduleLabel: _scheduleLabel(context, schedule),
-          ),
-        ),
+        onTap: () => showMaintenanceProposalDetails(context, proposal),
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Column(
@@ -70,7 +76,6 @@ class MaintenanceProposalCard extends StatelessWidget {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
-              Text(_scheduleLabel(context, schedule)),
               if (proposal.status == MaintenanceStatus.pending)
                 TextButton(
                   onPressed: onCancel,
@@ -82,10 +87,4 @@ class MaintenanceProposalCard extends StatelessWidget {
       ),
     );
   }
-
-  String _scheduleLabel(BuildContext context, BookingSlot? schedule) =>
-      schedule == null
-      ? 'Chưa chọn thời gian'
-      : '${MaterialLocalizations.of(context).formatCompactDate(schedule.date)} · '
-            '${bookingStartTimes[schedule.index]} – ${bookingEndTimes[schedule.index]}';
 }

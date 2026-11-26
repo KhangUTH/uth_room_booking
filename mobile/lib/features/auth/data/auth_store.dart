@@ -182,12 +182,13 @@ Future<HomeRouteArgs> _signIn(
   }
   await sessionStorage?.removePersistedSession();
   final isCode = !identifier.contains('@');
-  final response = isCode
-      ? await _signInByCode(client, identifier, password, expectedRole)
-      : await client.auth.signInWithPassword(
-          email: identifier,
-          password: password,
-        );
+  final response = await _signInWithIdentifier(
+    client,
+    identifier,
+    password,
+    expectedRole,
+    isCode: isCode,
+  );
   try {
     final user = response.user;
     if (user == null) throw const AuthException('Không tìm thấy tài khoản.');
@@ -211,17 +212,22 @@ Future<HomeRouteArgs> _signIn(
   }
 }
 
-Future<AuthResponse> _signInByCode(
+Future<AuthResponse> _signInWithIdentifier(
   SupabaseClient client,
-  String code,
+  String identifier,
   String password,
-  UserRole role,
-) async {
+  UserRole role, {
+  required bool isCode,
+}) async {
   try {
     final response = await client.functions.invoke(
       'sign-in-by-code',
       headers: const {'Content-Type': 'application/json'},
-      body: jsonEncode({'code': code, 'password': password, 'role': role.name}),
+      body: jsonEncode({
+        (isCode ? 'code' : 'email'): identifier,
+        'password': password,
+        'role': role.name,
+      }),
     );
     final data = response.data;
     if (data is Map && data['session'] is Map) {

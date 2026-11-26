@@ -34,7 +34,7 @@ class IncidentReportStore {
   static const _timeout = Duration(seconds: 15);
   static const _uploadTimeout = Duration(seconds: 45);
   static const _fields =
-      'id,report_number,title,description,status,created_at,'
+      'id,room_id,equipment_id,report_number,title,description,status,created_at,'
       'course_section,needs_support,has_photo,status_updated_at,assigned_to,'
       'rooms(name),equipment(name)';
 
@@ -89,16 +89,12 @@ class IncidentReportStore {
     if (existing != null) return _decode(existing);
 
     final isRoom = report.type == 'Phòng máy';
-    final assetQuery = _client
-        .from(isRoom ? 'rooms' : 'equipment')
-        .select('id')
-        .eq('name', report.asset);
-    final asset =
-        await (isRoom
-                ? assetQuery.eq('is_archived', false)
-                : assetQuery.isFilter('room_id', null))
-            .single()
-            .timeout(_timeout);
+    final assetId = report.assetId;
+    if (assetId == null) {
+      throw const FormatException(
+        'Danh mục đã thay đổi. Vui lòng chọn lại vị trí hoặc đối tượng.',
+      );
+    }
     if (report.photos.isNotEmpty) {
       onPhotoUploadChanged?.call(true);
       try {
@@ -111,7 +107,7 @@ class IncidentReportStore {
         .from('incident_reports')
         .insert({
           'id': submissionId,
-          if (isRoom) 'room_id': asset['id'] else 'equipment_id': asset['id'],
+          if (isRoom) 'room_id': assetId else 'equipment_id': assetId,
           'title': report.title,
           'description': report.description,
           'course_section': report.course.isEmpty ? null : report.course,
@@ -222,6 +218,7 @@ class IncidentReportStore {
         description: row['description'] as String? ?? '',
         type: room != null ? 'Phòng máy' : 'Thiết bị',
         asset: (room ?? equipment)?['name'] as String? ?? 'Tài sản',
+        assetId: (row['room_id'] ?? row['equipment_id']) as String?,
         course: row['course_section'] as String? ?? '',
         needsSupport: row['needs_support'] == true,
         submittedAt: DateTime.parse(row['created_at'] as String).toLocal(),

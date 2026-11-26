@@ -2,6 +2,10 @@
 
 Màn hình nằm trong `presentation/` của tính năng tương ứng. Widget dành riêng cho một tính năng nằm trong `widgets/` của tính năng đó. AppBar, thanh điều hướng và `MainShell` nằm trong `lib/shared/layouts/`, còn widget được nhiều tính năng sử dụng nằm trong `lib/shared/widgets/`.
 
+`profile/presentation/profile_avatar_controller.dart` quản lý trạng thái tải và đổi ảnh đại diện cho AppBar và trang Cá nhân. `booking/controllers/booking_controller.dart` thực hiện gửi và hủy đăng ký. Các hộp xác nhận nằm trong `booking/widgets/booking_action_dialogs.dart`.
+
+Lịch dùng ID Supabase để đối chiếu tài sản và ca bận. `ScheduleView` làm mới ngầm khi tab Lịch đang mở ở tiền cảnh.
+
 Khi mở rộng một màn hình, giữ điều phối luồng và trạng thái cấp màn hình trong `presentation/`. Đặt form, danh sách, thẻ và hộp thoại có trách nhiệm riêng trong `widgets/` của tính năng. Giữ quy tắc nghiệp vụ và dữ liệu ở lớp hiện có của tính năng.
 
 - `auth/` tách màn hình đăng nhập, xác thực Supabase và lưu phiên thiết bị.
@@ -24,6 +28,10 @@ Trạng thái tải lại danh mục, dữ liệu đã tải và khung thử l�
 `auth/widgets/login_password_options.dart` chứa các tùy chọn dưới ô mật khẩu. Hộp thoại khôi phục mật khẩu, xác minh OTP và đặt mật khẩu mới nằm trong `auth/widgets/password_recovery_dialog.dart`.
 
 Bảng chi tiết mở từ hộp thư nằm trong `notifications/widgets/notice_details_sheet.dart`. Các nút chọn loại sự cố và công tắc hỗ trợ trong giờ dạy nằm trong `incident_report/widgets/incident_report_controls.dart`. Hộp lưu ý khi mở Lịch nằm trong `booking/widgets/booking_hint.dart`.
+
+`notifications/presentation/notice_navigation.dart` mở đúng báo cáo, công việc hoặc đề xuất khi người dùng chọn thông báo. `notifications_view.dart` quản lý hộp thư và thao tác trên danh sách.
+
+`technician/data/maintenance_proposal_store.dart` gửi đề xuất theo ID tài sản lấy từ danh mục Supabase. Controller giữ danh sách trong phiên và dữ liệu demo. Danh sách công việc và màn chi tiết chỉ tải định kỳ khi màn tương ứng đang hiện.
 
 Phần vẽ vòng trang trí màn hình khởi động nằm trong `splash/widgets/splash_ring_painters.dart`.
 

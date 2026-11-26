@@ -1,9 +1,19 @@
 export const PAGE_SIZE = 10;
+export const facilityStatusLabel = (active) => active ? "Hoạt động" : "Bảo trì";
 export const equipmentStatuses = [
-  { value: "available", label: "Sẵn sàng" },
-  { value: "in_use", label: "Đang sử dụng" },
-  { value: "broken", label: "Hỏng" },
+  { value: "available", label: facilityStatusLabel(true) },
+  { value: "broken", label: facilityStatusLabel(false) },
 ];
+export const equipmentStatusLabel = (status) =>
+  equipmentStatuses.find(({ value }) => value === status)?.label || (status === "in_use" ? "Đang sử dụng (trạng thái cũ)" : "Chưa xác định");
+export const profileRoleLabels = { admin: "Quản trị viên", student: "Sinh viên", teacher: "Giảng viên", lecturer: "Giảng viên", technician: "Nhân viên kỹ thuật" };
+export const profileCodeFields = {
+  student: { key: "student_code", label: "Mã sinh viên" },
+  teacher: { key: "lecturer_code", label: "Mã giảng viên" },
+  lecturer: { key: "lecturer_code", label: "Mã giảng viên" },
+  technician: { key: "employee_code", label: "Mã nhân viên" },
+};
+export const profileHasFaculty = (role) => ["student", "teacher", "lecturer"].includes(role);
 
 export const entities = {
   profiles: {
@@ -42,18 +52,19 @@ export function searchFilter(columns, text) {
   return columns.map((column) => `${column}.ilike.${JSON.stringify(`%${literal}%`)}`).join(",");
 }
 
-export async function listRecords(client, table, { page = 1, search = "", filter = "", archived = false, signal } = {}) {
+export async function listRecords(client, table, { page = 1, search = "", filter = "", signal } = {}) {
   const config = entities[table];
   if (!config) throw new Error("Unsupported entity");
   let query = client.from(table).select(config.columns, { count: "exact" });
   if (search.trim()) query = query.or(searchFilter(config.search, search));
-  if (table === "rooms") query = query.eq("is_archived", archived);
+  if (table === "rooms") query = query.eq("is_archived", false);
   if (filter) {
     if (table === "profiles") query = query.eq("role", filter);
     else if (table === "rooms") query = query.eq("is_active", filter === "active");
     else query = query.eq("room_id", filter);
   }
   const start = (Math.max(1, page) - 1) * PAGE_SIZE;
+  if (table === "rooms") query = query.order("is_active", { ascending: false, nullsFirst: false });
   const { data, error, count } = await query.order("created_at", { ascending: false }).order("id").range(start, start + PAGE_SIZE - 1).abortSignal(signal);
   if (error) throw error;
   return { rows: data ?? [], count: count ?? 0 };
@@ -65,11 +76,13 @@ export function recordPayload(table, values) {
   if (table === "profiles" && (!values.full_name?.trim() || !values.role)) throw { userMessage: "Vui lòng nhập họ tên và chọn vai trò." };
   if (table !== "profiles" && !values.name?.trim()) throw { userMessage: "Vui lòng nhập tên hợp lệ." };
   if (table === "equipment" && !values.status?.trim()) throw { userMessage: "Vui lòng nhập trạng thái thiết bị." };
-  if (table === "equipment" && !equipmentStatuses.some(({ value }) => value === values.status.trim())) throw { userMessage: "Trạng thái thiết bị không hợp lệ." };
+  if (table === "equipment" && !equipmentStatuses.some(({ value }) => value === values.status.trim())) throw { userMessage: "Chọn Hoạt động hoặc Bảo trì cho thiết bị." };
   if (table === "profiles") return {
     full_name: values.full_name.trim(), role: values.role, is_active: values.is_active,
-    student_code: optional(values.student_code), lecturer_code: optional(values.lecturer_code),
-    employee_code: optional(values.employee_code), faculty: optional(values.faculty),
+    student_code: profileCodeFields[values.role]?.key === "student_code" ? optional(values.student_code) : null,
+    lecturer_code: profileCodeFields[values.role]?.key === "lecturer_code" ? optional(values.lecturer_code) : null,
+    employee_code: profileCodeFields[values.role]?.key === "employee_code" ? optional(values.employee_code) : null,
+    faculty: profileHasFaculty(values.role) ? optional(values.faculty) : null,
   };
   if (table === "rooms") {
     const capacity = Number(values.capacity);
@@ -102,20 +115,10 @@ export async function saveRecord(client, table, values, id) {
   return data;
 }
 
-export async function archiveRecord(client, table, record) {
-  // Preserve booking/report history; profiles are disabled rather than deleting Auth users.
-  const payload = table === "profiles" ? { is_active: false }
-    : table === "rooms" ? { is_archived: !record.is_archived } : null;
-  if (!payload) throw new Error("Unsupported archive operation");
-  const { data, error } = await client.from(table).update(payload).eq("id", record.id).select("id").single();
-  if (error) throw error;
-  return data;
-}
-
 export async function deleteRecord(client, table, id) {
   if (!["rooms", "equipment"].includes(table) || typeof id !== "string" || !id.trim()) throw new Error("Invalid delete target");
   const { data, error } = await client.from(table).delete().eq("id", id).select("id").single();
-  if (error?.code === "23503") throw { userMessage: "Không thể xóa vì bản ghi còn được thiết bị, lịch đặt hoặc báo cáo sự cố tham chiếu. Hãy xử lý các liên kết trước; với phòng, bạn có thể chọn lưu trữ để giữ lịch sử." };
+  if (error?.code === "23503") throw { userMessage: "Không thể xóa vì phòng hoặc thiết bị còn liên kết với dữ liệu khác, chẳng hạn lịch đặt, báo cáo sự cố hoặc đề xuất bảo trì." };
   if (error?.code === "PGRST116") throw { userMessage: "Không thể xóa: bản ghi có thể đã bị xóa hoặc bạn không còn quyền truy cập." };
   if (error) throw error;
   return data;

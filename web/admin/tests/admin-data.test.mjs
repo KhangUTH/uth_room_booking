@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { createClient } from '@supabase/supabase-js';
-import { archiveRecord, dataErrorMessage, deleteRecord, listRecords, loadReferences, recordPayload, saveRecord, searchFilter } from '../src/lib/adminData.js';
+import { dataErrorMessage, deleteRecord, listRecords, loadReferences, recordPayload, saveRecord, searchFilter } from '../src/lib/adminData.js';
 import { validateCreateUser } from '../../../supabase/functions/admin-create-user/validation.js';
+import { listMaintenanceProposals, loadOverviewCounts, loadRecentActivity } from '../src/pages/Admin/AdminOperations/operationsData.js';
 
 function fixture(respond) {
   const requests = [];
@@ -18,6 +19,40 @@ function fixture(respond) {
   return { client, requests };
 }
 
+test('overview counts and pending proposal list use matching status filters', async () => {
+  const { client, requests } = fixture(() => ({ body: [], headers: { 'content-range': '*/0' } }));
+  const signal = new AbortController().signal;
+  const counts = await loadOverviewCounts(client, signal);
+  assert.ok(counts.every(({ status }) => status === 'fulfilled'));
+  await listMaintenanceProposals(client, { page: 1, pending: true, assetType: 'room' }, signal);
+  await listMaintenanceProposals(client, { page: 1, pending: true, assetType: 'equipment' }, signal);
+  const statusFor = (table) => requests.filter(({ url }) => url.pathname.endsWith(`/${table}`))
+    .map(({ url }) => url.searchParams.get('status'));
+  assert.deepEqual(statusFor('maintenance_proposals'), ['eq.pending', 'eq.pending', 'eq.pending']);
+  assert.equal(requests.at(-2).url.searchParams.get('room_id'), 'not.is.null');
+  assert.equal(requests.at(-1).url.searchParams.get('equipment_id'), 'not.is.null');
+  assert.deepEqual(statusFor('incident_reports'), ['eq.open', 'eq.in_progress']);
+  assert.deepEqual(statusFor('support_requests'), []);
+});
+
+test('recent activity links to the matching booking, incident type and proposal', async () => {
+  const rows = {
+    uth_admin_bookings: { id: 'booking', room_name: 'H509' },
+    incident_reports: { id: 'incident', title: 'Mất tiếng', report_number: 37, room_id: null },
+    maintenance_proposals: { id: 'proposal', equipment: { name: 'Micro' } },
+  };
+  const { client } = fixture(({ url }) => ({
+    body: [{ ...rows[url.pathname.split('/').at(-1)], created_at: '2026-11-24T00:00:00Z' }],
+  }));
+  const activity = await loadRecentActivity(client, new AbortController().signal);
+  assert.equal(activity.error, undefined);
+  assert.deepEqual(activity.rows.map(({ path }) => path), [
+    '/managercalendar?ma=booking',
+    '/managerassignment?loai=equipment&ma=37',
+    '/equipment-proposals?ma=proposal',
+  ]);
+});
+
 test('database pagination, exact count, stable sort, search and archive filter use actual SDK requests', async () => {
   const { client, requests } = fixture(() => ({ body: [{ id: 'room-1', name: 'H001' }], headers: { 'content-range': '10-10/21' } }));
   const result = await listRecords(client, 'rooms', { page: 2, search: 'H001', filter: 'active' });
@@ -28,7 +63,7 @@ test('database pagination, exact count, stable sort, search and archive filter u
   assert.equal(query.get('limit'), '10');
   assert.equal(query.get('is_archived'), 'eq.false');
   assert.equal(query.get('is_active'), 'eq.true');
-  assert.equal(query.get('order'), 'created_at.desc,id.asc');
+  assert.equal(query.get('order'), 'is_active.desc.nullslast,created_at.desc,id.asc');
   assert.ok(query.get('or').includes('name.ilike.'));
   assert.match(requests[0].headers.get('prefer'), /count=exact/);
 });
@@ -53,7 +88,8 @@ test('writes whitelist schema columns and validate integer capacity and required
   assert.throws(() => recordPayload('equipment', { name: ' ', status: 'active' }));
   assert.throws(() => recordPayload('equipment', { name: 'PC', status: ' ' }));
   assert.deepEqual(recordPayload('equipment', { name: 'PC', room_id: '', status: ' available ', note: '', location: '' }), { name: 'PC', room_id: null, status: 'available', note: null, location: null });
-  for (const status of ['available', 'in_use', 'broken']) assert.equal(recordPayload('equipment', { name: 'PC', status }).status, status);
+  for (const status of ['available', 'broken']) assert.equal(recordPayload('equipment', { name: 'PC', status }).status, status);
+  assert.throws(() => recordPayload('equipment', { name: 'PC', status: 'in_use' }));
   assert.throws(() => recordPayload('equipment', { name: 'PC', status: 'active' }));
 });
 
@@ -68,14 +104,12 @@ test('room create sets unarchived; updates target a single row and surface RLS f
   assert.match(dataErrorMessage({ code: '42501' }), /RLS/);
 });
 
-test('archiving/disabling preserves rows and never sends DELETE', async () => {
+test('disabling a profile updates its status without deleting the account', async () => {
   const { client, requests } = fixture(() => ({ body: { id: 'id1' } }));
-  await archiveRecord(client, 'profiles', { id: 'id1' });
-  await archiveRecord(client, 'rooms', { id: 'id1', is_archived: false });
-  await archiveRecord(client, 'rooms', { id: 'id1', is_archived: true });
-  assert.deepEqual(requests.map((request) => request.body), [{ is_active: false }, { is_archived: true }, { is_archived: false }]);
-  assert.ok(requests.every((request) => request.method === 'PATCH'));
-  await assert.rejects(archiveRecord(client, 'equipment', { id: 'id1' }));
+  await saveRecord(client, 'profiles', { full_name: 'Sinh viên', role: 'student', is_active: false }, 'id1');
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].method, 'PATCH');
+  assert.equal(requests[0].body.is_active, false);
 });
 
 test('permanent delete targets one specific room/equipment and rejects other tables or missing ids', async () => {
@@ -99,7 +133,7 @@ test('delete surfaces RLS denial and explains foreign-key references without cas
   const denied = fixture(() => ({ status: 403, body: { code: '42501', message: 'denied' } }));
   await assert.rejects(deleteRecord(denied.client, 'equipment', 'test-id'), (error) => error.code === '42501');
   const linked = fixture(() => ({ status: 409, body: { code: '23503', message: 'foreign key violation' } }));
-  await assert.rejects(deleteRecord(linked.client, 'rooms', 'test-id'), (error) => /tham chiếu/.test(error.userMessage));
+  await assert.rejects(deleteRecord(linked.client, 'rooms', 'test-id'), (error) => /còn liên kết/.test(error.userMessage));
   assert.equal(linked.requests.length, 1);
   const missing = fixture(() => ({ status: 406, body: { code: 'PGRST116', message: 'zero rows' } }));
   await assert.rejects(deleteRecord(missing.client, 'equipment', 'test-id'), (error) => /đã bị xóa/.test(error.userMessage));
@@ -134,4 +168,14 @@ test('server validation rejects unknown enum roles, weak input and strips inject
   assert.throws(() => validateCreateUser(body, ['admin']), /Vai trò/);
   assert.throws(() => validateCreateUser({ ...body, password: 'short' }, ['student']), /Mật khẩu/);
   assert.throws(() => validateCreateUser({ ...body, email: 'invalid' }, ['student']), /Email/);
+});
+test('profile writes clear codes and faculty belonging to other roles', () => {
+  const values = {
+    full_name: ' Test User ', role: 'technician', is_active: false,
+    student_code: 'old-student', lecturer_code: 'old-lecturer', employee_code: ' KT01 ', faculty: 'Old faculty',
+  };
+  assert.deepEqual(recordPayload('profiles', values), {
+    full_name: 'Test User', role: 'technician', is_active: false,
+    student_code: null, lecturer_code: null, employee_code: 'KT01', faculty: null,
+  });
 });

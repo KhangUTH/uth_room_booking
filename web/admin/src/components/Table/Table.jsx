@@ -1,10 +1,14 @@
 import "./Table.css";
 
+export function StatusBadge({ tone = "neutral", children }) {
+    return <span className={`admin-status admin-status--${tone}`}>{children}</span>;
+}
+
 function Table({ columns, data, actions = [], emptyMessage = "Chưa có dữ liệu.", busy = false }) {
     return (
         <>
             <div className="common-table-container">
-                <table>
+                <table className="admin-table">
                     <thead>
                         <tr>
                             {columns.map((column, index) => (

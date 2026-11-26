@@ -9,12 +9,10 @@ class MaintenanceProposalDetailsSheet extends StatelessWidget {
     super.key,
     required this.proposal,
     required this.statusColor,
-    required this.scheduleLabel,
   });
 
   final MaintenanceProposal proposal;
   final Color statusColor;
-  final String scheduleLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -68,11 +66,6 @@ class MaintenanceProposalDetailsSheet extends StatelessWidget {
               icon: Icons.description_outlined,
               label: 'Lý do bảo trì',
               child: Text(proposal.reason),
-            ),
-            _DetailBox(
-              icon: Icons.calendar_today_outlined,
-              label: 'Thời gian dự kiến',
-              child: Text(scheduleLabel),
             ),
           ],
         ),

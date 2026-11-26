@@ -3,6 +3,8 @@ import { AuthContext } from "./AuthContext.js";
 import { supabase } from "../lib/supabase.js";
 import { getAdminAccess, loadProfile } from "../lib/adminAccess.js";
 
+const enforceAdminMfa = import.meta.env.VITE_ADMIN_MFA_REQUIRED === "true";
+
 export default function AuthProvider({ children }) {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(Boolean(supabase));
@@ -15,6 +17,7 @@ export default function AuthProvider({ children }) {
     profileResult?.accessToken !== accessToken || profileResult?.revision !== profileRevision
   );
   const profile = session && !profileLoading ? profileResult?.profile ?? null : null;
+  const mfaRequired = profileResult?.accessToken === accessToken && profileResult?.mfaRequired === true;
   const access = session && !profileLoading
     ? getAdminAccess(userId, profile, profileResult?.error)
     : { isAdmin: false, accessError: null };
@@ -40,7 +43,13 @@ export default function AuthProvider({ children }) {
     async function fetchProfile() {
       try {
         const nextProfile = await loadProfile(supabase, userId, controller.signal);
-        if (active) setProfileResult({ accessToken, revision: profileRevision, profile: nextProfile, error: null });
+        let requiresMfa = false;
+        if (enforceAdminMfa && getAdminAccess(userId, nextProfile).isAdmin) {
+          const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel(accessToken);
+          if (error) throw error;
+          requiresMfa = data.currentLevel !== "aal2";
+        }
+        if (active) setProfileResult({ accessToken, revision: profileRevision, profile: nextProfile, mfaRequired: requiresMfa, error: null });
       } catch (error) {
         if (active) setProfileResult({ accessToken, revision: profileRevision, profile: null, error });
       } finally {
@@ -60,8 +69,25 @@ export default function AuthProvider({ children }) {
     setProfileRevision((revision) => revision + 1);
   }
 
-  async function signIn(email, password) {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  async function signIn(email, password, captchaToken) {
+    const { data: result, error: requestError } = await supabase.functions.invoke("sign-in-by-code", {
+      body: { email, password, role: "admin", captchaToken },
+    });
+    if (requestError) {
+      const status = requestError.context?.status;
+      if (status === 429 || status === 401) {
+        throw { status, code: status === 401 ? "invalid_credentials" : "over_request_rate_limit" };
+      }
+      const body = await requestError.context?.json?.().catch(() => null);
+      if (body?.code === "captcha_failed") throw { code: "captcha_failed" };
+      throw requestError;
+    }
+    const tokens = result?.session;
+    if (!tokens?.access_token || !tokens?.refresh_token) throw new Error("Missing login session");
+    const { data, error } = await supabase.auth.setSession({
+      access_token: tokens.access_token,
+      refresh_token: tokens.refresh_token,
+    });
     if (error) throw error;
     setSession(data.session);
   }
@@ -74,7 +100,7 @@ export default function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ session, user: session?.user ?? null, profile, loading, profileLoading, ...access, refreshProfile, signIn, signOut }}>
+    <AuthContext.Provider value={{ session, user: session?.user ?? null, profile, loading, profileLoading, ...access, isAdmin: access.isAdmin && !mfaRequired, mfaRequired, refreshProfile, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   );

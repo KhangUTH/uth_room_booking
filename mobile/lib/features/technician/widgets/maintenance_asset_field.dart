@@ -47,6 +47,13 @@ class MaintenanceAssetField extends StatelessWidget {
                     Expanded(
                       child: _AssetOption(
                         name: asset.name,
+                        detail:
+                            assets
+                                    .where((item) => item.name == asset.name)
+                                    .length >
+                                1
+                            ? asset.detail
+                            : null,
                         icon: switch (asset.name) {
                           'Ổ điện' => Icons.power_outlined,
                           'Bàn phím A4Tech KR-83' => Icons.keyboard_outlined,
@@ -82,12 +89,14 @@ class MaintenanceAssetField extends StatelessWidget {
 class _AssetOption extends StatelessWidget {
   const _AssetOption({
     required this.name,
+    this.detail,
     required this.icon,
     required this.selected,
     required this.onTap,
   });
 
   final String name;
+  final String? detail;
   final IconData icon;
   final bool selected;
   final VoidCallback onTap;
@@ -114,6 +123,8 @@ class _AssetOption extends StatelessWidget {
         children: [
           Icon(icon, size: 22, color: AppColors.primary),
           Text(name, textAlign: TextAlign.center),
+          if (detail case final location?)
+            Text(location, textAlign: TextAlign.center),
         ],
       ),
     ),

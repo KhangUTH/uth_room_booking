@@ -1,13 +1,20 @@
 .detail-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.45);
-    display: flex;
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    border: 0;
+    background: transparent;
     justify-content: center;
     align-items: center;
     padding: 15px;
     z-index: 1000;
 }
+.detail-overlay[open] { display: flex; }
+.detail-overlay::backdrop { background: rgba(0, 0, 0, 0.45); }
 
 @keyframes show {
     from {
@@ -116,6 +123,9 @@
     display: inline-flex;
     align-items: center;
     gap: 5px;
+}
+
+.detail-status:not(.admin-status) {
     padding: 9px 13px;
     border-radius: 25px;
     background: #ff891e;
@@ -124,8 +134,52 @@
     font-size: 17px;
 }
 
-.detail-status.assignment-status {
-    top: -28px;
+.detail-modal:has(.assignment-status) {
+    font-family: Arial, Helvetica, sans-serif;
+    max-width: 960px;
+    max-height: calc(100dvh - 30px);
+    padding: 30px 14px 14px;
+    overflow-y: auto;
+}
+.detail-modal:has(.assignment-status) .detail-content { padding: 14px; border-radius: 14px; }
+.detail-modal:has(.assignment-status) .detail-product { gap: 16px; margin-bottom: 12px; }
+.detail-modal:has(.assignment-status) :is(.detail-image, .detail-registration) {
+    background: white;
+    border: 1px solid #b9d9d7;
+    border-radius: 12px;
+}
+.detail-modal:has(.assignment-status) .detail-image { width: 224px; height: 176px; padding: 4px; }
+.detail-modal:has(.assignment-status) .detail-image:empty { display: none; }
+.detail-modal:has(.assignment-status) .detail-image img { border-radius: 8px; }
+.detail-image-preview { display: block; width: 100%; height: 100%; padding: 0; border: 0; border-radius: 8px; background: white; cursor: zoom-in; }
+.detail-image-preview:focus-visible { outline: 2px solid #008b8e; outline-offset: 2px; }
+.data-dialog:has(.assignment-photo-full) { width: min(1000px, calc(100vw - 32px)); }
+.assignment-photo-full { display: block; width: 100%; max-height: calc(100dvh - 110px); object-fit: contain; background: #f3f7f7; }
+.detail-modal:has(.assignment-status) .detail-info { min-width: 0; padding-top: 0; overflow-wrap: anywhere; }
+.detail-modal:has(.assignment-status) .detail-status { position: static; margin-bottom: 5px; }
+.detail-modal:has(.assignment-status) .detail-info h2 {
+    color: #183437;
+    font-size: clamp(1.125rem, 2.5vw, 1.5rem);
+    line-height: 1.3;
+    margin-bottom: 8px;
+}
+.detail-modal:has(.assignment-status) .detail-info p { font-size: .9375rem; margin-bottom: 4px; }
+.detail-modal:has(.assignment-status) .detail-info .code { color: #066c66; margin-top: 0; }
+.detail-modal:has(.assignment-status) .detail-registration { padding: 12px 14px; }
+.detail-modal:has(.assignment-status) .detail-registration-inner { padding: 0; border-radius: 0; }
+.detail-modal:has(.assignment-status) .detail-registration h3 { color: #183437; font-size: 1rem; margin-bottom: 10px; }
+.assignment-details { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 20px; margin: 0; }
+.assignment-details > div { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; min-width: 0; padding-top: 6px; border-top: 1px solid #e3ecec; }
+.assignment-details dt { color: #4b646a; font-size: .875rem; font-weight: 600; }
+.assignment-details dd { margin: 0; color: #183437; font-size: .9375rem; line-height: 1.4; overflow-wrap: anywhere; }
+.assignment-description { grid-column: 1 / -1; }
+.assignment-description dd { white-space: pre-wrap; }
+
+@media (max-width: 640px) {
+    .detail-modal:has(.assignment-status) .detail-content { padding-inline: 16px; }
+    .detail-modal:has(.assignment-status) .detail-product { flex-direction: column; align-items: stretch; gap: 10px; }
+    .detail-modal:has(.assignment-status) .detail-image { max-width: 100%; align-self: center; }
+    .assignment-details { grid-template-columns: minmax(0, 1fr); }
 }
 
 .detail-status.maintenance-status {

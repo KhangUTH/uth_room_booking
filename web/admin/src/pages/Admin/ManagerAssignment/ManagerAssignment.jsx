@@ -1,88 +1,129 @@
 import { useEffect, useRef, useState } from "react";
+import { useOutletContext, useSearchParams } from "react-router-dom";
 import { supabase } from "../../../lib/supabase.js";
 import AssignmentTitle from "./AssignmentTitle/AssignmentTitle.jsx";
 import AssignmentTable from "./AssignmentTable/AssignmentTable.jsx";
 import AssignmentDetail from "./AssignmentDetail/AssignmentDetail.jsx";
+import Pagination from "../../../components/Pagination/Pagination.jsx";
+import "../../../components/AdminRecords/AdminRecords.css";
+import "../../../layouts/FacilitiesLayout.css";
+
+const assetTabs = [
+    { value: "", label: "Tất cả tài sản", icon: "fa-solid fa-list" },
+    { value: "room", label: "Phòng máy", icon: "fa-solid fa-door-open" },
+    { value: "equipment", label: "Thiết bị", icon: "fa-solid fa-hard-drive" },
+];
 
 export default function ManagerAssignment() {
+    const [params] = useSearchParams();
+    const number = params.get("ma");
+    const status = params.get("trang-thai");
+    const type = params.get("loai");
     const [rows, setRows] = useState([]);
     const [selected, setSelected] = useState(null);
     const [page, setPage] = useState(1);
     const [count, setCount] = useState(0);
-    const [search, setSearch] = useState("");
-    const [filter, setFilter] = useState("");
+    const [search, setSearch] = useState(() => /^\d+$/.test(number ?? "") ? `#SC-${number}` : "");
+    const [filter, setFilter] = useState(() => ["open", "in_progress"].includes(status) ? status : "");
+    const [assetType, setAssetType] = useState(() => type === "all" ? "" : type === "equipment" ? "equipment" : "room");
     const [revision, setRevision] = useState(0);
     const [loading, setLoading] = useState(true);
-    const [saving, setSaving] = useState(false);
     const [error, setError] = useState("");
-    const [message, setMessage] = useState("");
-    const mutation = useRef(false);
+    const photoCache = useRef(new Map());
+    const previousSearch = useRef(search);
+    const live = useOutletContext();
+    const liveRevision = (live?.all ?? 0) + (live?.incident_reports ?? 0) + (live?.profiles ?? 0)
+        + (live?.rooms ?? 0) + (live?.equipment ?? 0);
+    const selectedId = selected?.id;
+    const selectedNumber = selected?.report_number;
 
     useEffect(() => {
+        const typing = previousSearch.current !== search;
+        previousSearch.current = search;
         const controller = new AbortController();
+        let active = true;
         const timer = setTimeout(async () => {
-            setLoading(true);
+            const timeout = setTimeout(() => controller.abort(), 12000);
             setError("");
             try {
                 if (!supabase) throw new Error("Supabase chưa được cấu hình.");
                 const reports = await supabase.rpc("admin_incident_reports", {
-                        page_number: page, search_text: search.trim(), status_filter: filter,
+                        page_number: page, search_text: search.trim(), status_filter: filter, asset_filter: assetType,
                     }).abortSignal(controller.signal);
                 if (reports.error) throw reports.error;
-                if (controller.signal.aborted) return;
+                if (controller.signal.aborted) {
+                    if (active) setError("Kết nối chậm. Bấm Tải lại để thử lại.");
+                    return;
+                }
                 setRows(reports.data.rows);
                 setCount(reports.data.count);
             } catch {
-                if (!controller.signal.aborted) {
-                    setRows([]);
-                    setError("Không tải được báo cáo. Kiểm tra quyền admin và cấu hình luồng duyệt trên Supabase rồi thử lại.");
+                if (active) {
+                    setError(controller.signal.aborted
+                        ? "Kết nối chậm. Bấm Tải lại để thử lại."
+                        : "Không tải được báo cáo. Vui lòng thử lại.");
                 }
             } finally {
-                if (!controller.signal.aborted) setLoading(false);
+                clearTimeout(timeout);
+                if (active) setLoading(false);
             }
-        }, 250);
-        return () => { clearTimeout(timer); controller.abort(); };
-    }, [page, search, filter, revision]);
+        }, typing ? 250 : 0);
+        return () => {
+            active = false;
+            clearTimeout(timer);
+            controller.abort();
+        };
+    }, [page, search, filter, assetType, revision, liveRevision]);
 
-    async function approve(row) {
-        if (mutation.current || row.approved_at || row.status !== "open") return;
-        if (!window.confirm(`Duyệt báo cáo #SC-${String(row.report_number).padStart(4, "0")} để các kỹ thuật viên có thể nhận?`)) return;
-        mutation.current = true;
-        setSaving(true);
-        setError("");
-        setMessage("");
-        try {
-            const { error: failure } = await supabase.rpc("approve_incident_report", {
-                report_id: row.id,
-            });
-            if (failure) throw failure;
-            setMessage("Đã duyệt. Công việc đã vào hàng đợi chung cho các kỹ thuật viên.");
-            setRevision((value) => value + 1);
-        } catch {
-            setError("Không duyệt được báo cáo. Báo cáo có thể đã thay đổi hoặc tài khoản không còn quyền. Tải lại để kiểm tra trước khi thử lại.");
-        } finally {
-            mutation.current = false;
-            setSaving(false);
-        }
-    }
+    useEffect(() => {
+        if (!selectedId || selectedNumber == null || !supabase) return;
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 15000);
+        supabase.rpc("admin_incident_reports", {
+            page_number: 1, search_text: `#SC-${selectedNumber}`, status_filter: "",
+        }).abortSignal(controller.signal).then(({ data }) => {
+            if (controller.signal.aborted) return;
+            const current = data?.rows?.find((report) => report.id === selectedId);
+            if (current) setSelected((previous) => previous?.id === selectedId ? current : previous);
+        }).catch(() => {}).finally(() => clearTimeout(timeout));
+        return () => { clearTimeout(timeout); controller.abort(); };
+    }, [selectedId, selectedNumber, liveRevision]);
 
-    const busy = loading || saving;
+    const busy = loading;
     return <>
         <AssignmentTitle search={search} filter={filter}
             onSearch={(value) => { setSearch(value); setPage(1); setLoading(true); }}
-            onFilter={(value) => { setFilter(value); setPage(1); setLoading(true); }} />
-        <section className="content" aria-busy={busy}>
-            {error && <p role="alert">{error}</p>}
-            {message && <p role="status">{message}</p>}
-            <button type="button" disabled={busy} onClick={() => setRevision((value) => value + 1)}>Tải lại</button>
-            {loading && <p role="status">Đang tải báo cáo…</p>}
-            <AssignmentTable rows={rows} busy={busy} onView={setSelected} onApprove={approve} />
-            <div className="pagination">
-                <button type="button" disabled={busy || page === 1} onClick={() => { setPage(page - 1); setLoading(true); }}>Trước</button>
-                <span>Trang {page} / {Math.max(1, Math.ceil(count / 10))} · {count} báo cáo</span>
-                <button type="button" disabled={busy || page * 10 >= count} onClick={() => { setPage(page + 1); setLoading(true); }}>Sau</button>
+            onFilter={(value) => { setFilter(value); setPage(1); setLoading(true); }}
+            loading={loading}
+            onReload={() => {
+                setLoading(true);
+                setRevision((value) => value + 1);
+            }} />
+        <section className="content data-management" aria-busy={busy}>
+            <div className="facilities-tabs incident-asset-tabs" role="group" aria-label="Loại tài sản báo sự cố">
+                {assetTabs.map(({ value, label, icon }) => (
+                    <button key={value} type="button"
+                        className={`facilities-tab${assetType === value ? " active" : ""}`}
+                        aria-pressed={assetType === value}
+                        onClick={() => {
+                            if (assetType === value) return;
+                            setAssetType(value);
+                            setPage(1);
+                            setRows([]);
+                            setCount(0);
+                            setError("");
+                            setLoading(true);
+                        }}>
+                        <i className={icon} aria-hidden="true" /> {label}
+                    </button>
+                ))}
             </div>
+            {error && <p role="alert">{error}</p>}
+            {loading && <p role="status">Đang tải báo cáo…</p>}
+            <AssignmentTable rows={rows} busy={busy} assetType={assetType} onView={setSelected} />
+            <Pagination page={page} count={count} busy={busy} label="Phân trang báo cáo"
+                onChange={(next) => { setPage(next); setLoading(true); }} />
         </section>
-        {selected && <AssignmentDetail report={selected} onClose={() => setSelected(null)} />}
+        {selected && <AssignmentDetail key={selected.id} report={selected} photoCache={photoCache} onClose={() => setSelected(null)} />}
     </>;
 }

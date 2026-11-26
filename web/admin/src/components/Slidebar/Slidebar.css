@@ -27,9 +27,7 @@
     flex-shrink: 0;
 }
 
-.sidebar-brand { display: flex; flex-direction: column; gap: 3px; color: white; text-decoration: none; white-space: nowrap; }
-.sidebar-brand strong { font-size: 22px; letter-spacing: 1px; }
-.sidebar-brand span { font-size: 11px; color: #d7eeee; }
+.sidebar-brand { display: flex; min-width: 0; align-items: center; }
 .sidebar-toggle { width: 34px; height: 34px; flex-shrink: 0; border: 0; border-radius: 7px; color: white; background: #ffffff16; cursor: pointer; font-size: 17px; }
 .sidebar-toggle:hover { background: #ffffff30; }
 .sidebar-menu { flex: 1; min-height: 0; padding: 14px 8px; display: flex; flex-direction: column; gap: 5px; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; scrollbar-width: thin; }

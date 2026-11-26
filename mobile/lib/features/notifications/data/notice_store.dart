@@ -22,6 +22,7 @@ class NoticeStore extends ChangeNotifier {
   final saved = <int>{};
   final _bookingIds = <int, String>{};
   final _incidentReportIds = <int, String>{};
+  final _proposalIds = <int, String>{};
   List<AppNotice> notices = [];
   Timer? _timer;
   Future<void>? _refreshing;
@@ -101,6 +102,8 @@ class NoticeStore extends ChangeNotifier {
 
   String? incidentReportId(int noticeId) => _incidentReportIds[noticeId];
 
+  String? proposalId(int noticeId) => _proposalIds[noticeId];
+
   Future<void> refresh() => _refreshing ??= _load().whenComplete(() {
     _refreshing = null;
   });
@@ -114,7 +117,7 @@ class NoticeStore extends ChangeNotifier {
       final rows = await _client
           .from('app_notifications')
           .select(
-            'id,booking_id,incident_report_id,title,message,created_at,is_read,is_saved',
+            'id,booking_id,incident_report_id,maintenance_proposal_id,title,message,created_at,is_read,is_saved',
           )
           .order('id', ascending: false)
           .timeout(const Duration(seconds: 10));
@@ -144,10 +147,14 @@ class NoticeStore extends ChangeNotifier {
       ];
       _bookingIds.clear();
       _incidentReportIds.clear();
+      _proposalIds.clear();
       read.clear();
       saved.clear();
       for (final row in rows) {
         final id = row['id'] as int;
+        if (row['maintenance_proposal_id'] case final String proposalId) {
+          _proposalIds[id] = proposalId;
+        }
         if (row['incident_report_id'] case final String reportId) {
           _incidentReportIds[id] = reportId;
         }
@@ -223,6 +230,7 @@ class NoticeStore extends ChangeNotifier {
     saved.removeAll(ids);
     _bookingIds.removeWhere((id, _) => ids.contains(id));
     _incidentReportIds.removeWhere((id, _) => ids.contains(id));
+    _proposalIds.removeWhere((id, _) => ids.contains(id));
     notifyListeners();
   }
 

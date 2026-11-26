@@ -54,26 +54,21 @@
 }
 
 .filter-box {
-    width: 155px;
+    width: min(230px, 100%);
     position: relative;
+    padding: 0;
+    background: transparent;
 }
 
 .filter-box select {
     width: 100%;
-    appearance: none;
-    border: none;
-    outline: none;
-    background: transparent;
     color: #008b8e;
     font-size: 16px;
     cursor: pointer;
 }
 
-.filter-box i {
-    position: absolute;
-    right: 12px;
-    pointer-events: none;
-    font-size: 14px;
+.filter-box select + i {
+    display: none;
 }
 
 .title-add-button {

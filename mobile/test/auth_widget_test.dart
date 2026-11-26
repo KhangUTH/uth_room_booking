@@ -261,6 +261,48 @@ void main() {
     expect(result?.role, UserRole.technician);
   });
 
+  test(
+    'đăng nhập bằng email gửi qua Edge Function và hiển thị giới hạn',
+    () async {
+      final client = SupabaseClient(
+        'https://example.com',
+        'test-key',
+        authOptions: const AuthClientOptions(autoRefreshToken: false),
+        httpClient: MockClient((request) async {
+          expect(request.url.path, endsWith('/functions/v1/sign-in-by-code'));
+          expect(jsonDecode(request.body), {
+            'email': 'student@example.com',
+            'password': 'test-only',
+            'role': 'student',
+          });
+          return http.Response(
+            '{"code":"over_request_rate_limit"}',
+            429,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+      addTearDown(client.dispose);
+      await expectLater(
+        authenticateWithSupabase(
+          client,
+          null,
+          'student@example.com',
+          'test-only',
+          UserRole.student,
+          false,
+        ),
+        throwsA(
+          isA<AuthException>().having(
+            (error) => error.message,
+            'message',
+            'Bạn thử đăng nhập lại sau ít phút.',
+          ),
+        ),
+      );
+    },
+  );
+
   testWidgets('mất mạng hiện lỗi trong form và cho phép thử lại', (
     tester,
   ) async {

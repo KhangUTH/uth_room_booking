@@ -44,6 +44,7 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
 
   Future<void> _refresh() async {
     if (_refreshing ||
+        ModalRoute.isCurrentOf(context) != true ||
         WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
       return;
     }

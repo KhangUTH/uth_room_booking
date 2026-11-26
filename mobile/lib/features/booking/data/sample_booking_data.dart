@@ -21,6 +21,7 @@ const List<BookingAsset> sampleBookingRooms = [
     name: 'Phòng B2-304',
     detail: '40 máy · Tầng 3 · Tòa B2',
     capacity: 40,
+    id: null,
     slots: [
       SlotStatus.booked,
       SlotStatus.free,
@@ -32,6 +33,7 @@ const List<BookingAsset> sampleBookingRooms = [
     name: 'Phòng B2-305',
     detail: '30 máy · Tầng 3 · Tòa B2',
     capacity: 30,
+    id: null,
     slots: [
       SlotStatus.free,
       SlotStatus.free,
@@ -43,6 +45,7 @@ const List<BookingAsset> sampleBookingRooms = [
     name: 'Phòng B1-201',
     detail: '50 máy · Tầng 2 · Tòa B1',
     capacity: 50,
+    id: null,
     slots: [
       SlotStatus.booked,
       SlotStatus.booked,
@@ -54,6 +57,7 @@ const List<BookingAsset> sampleBookingRooms = [
     name: sampleLibraryRoomName,
     detail: 'Tòa K · Tầng 1 · 20 máy',
     capacity: 20,
+    id: null,
     slots: _freeSlots,
   ),
 ];
@@ -63,6 +67,7 @@ const List<BookingAsset> sampleBookingEquipment = [
     name: 'Ổ điện',
     detail: 'Thiết bị chung',
     capacity: 0,
+    id: null,
     slots: [
       SlotStatus.free,
       SlotStatus.booked,
@@ -74,24 +79,28 @@ const List<BookingAsset> sampleBookingEquipment = [
     name: 'Bàn phím A4Tech KR-83',
     detail: 'Thiết bị chung',
     capacity: 0,
+    id: null,
     slots: _freeSlots,
   ),
   (
     name: 'Tai nghe Logitech H340',
     detail: 'Thiết bị chung',
     capacity: 0,
+    id: null,
     slots: _freeSlots,
   ),
   (
     name: 'Chuột Logitech M331 Silent Plus',
     detail: 'Thiết bị chung',
     capacity: 0,
+    id: null,
     slots: _freeSlots,
   ),
   (
     name: 'Micro TOA DM-1100',
     detail: 'Thiết bị chung',
     capacity: 0,
+    id: null,
     slots: [
       SlotStatus.free,
       SlotStatus.free,
@@ -131,19 +140,3 @@ List<Booking> createSampleBookings(DateTime today, UserRole role) {
 }
 
 /// Approved bookings represented by the demo's shared availability and timetable.
-List<Booking> createSampleUsageSchedule(DateTime today) => [
-  for (final asset in [...sampleBookingRooms, ...sampleBookingEquipment])
-    for (var index = 0; index < asset.slots.length; index++)
-      if (asset.slots[index] == SlotStatus.booked)
-        (
-          slot: (date: today, asset: asset.name, index: index),
-          asset: asset,
-          section: null,
-          studentCount: null,
-          status: BookingStatus.approved,
-        ),
-  ...createSampleBookings(
-    today,
-    UserRole.teacher,
-  ).where((booking) => booking.status == BookingStatus.approved),
-]..sort((a, b) => a.slot.index.compareTo(b.slot.index));

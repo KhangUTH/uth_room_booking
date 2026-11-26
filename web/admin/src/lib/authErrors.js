@@ -7,10 +7,14 @@ export function authErrorMessage(error) {
     weak_password: "Mật khẩu chưa đáp ứng yêu cầu bảo mật của hệ thống.",
     same_password: "Mật khẩu mới phải khác mật khẩu hiện tại.",
     otp_expired: "Liên kết đã hết hạn. Vui lòng yêu cầu một liên kết mới.",
+    mfa_verification_failed: "Mã xác thực không đúng. Vui lòng thử mã hiện tại.",
+    mfa_challenge_expired: "Yêu cầu xác minh đã hết hạn. Vui lòng thử lại.",
+    captcha_failed: "Xác minh chống bot không thành công. Vui lòng thử lại.",
     session_not_found: "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.",
     user_banned: "Tài khoản đã bị khóa. Vui lòng liên hệ quản trị viên.",
   };
   if (messages[error?.code]) return messages[error.code];
+  if (error?.status === 429) return messages.over_request_rate_limit;
   if (error?.name === "AuthRetryableFetchError" || error instanceof TypeError) {
     return "Không thể kết nối tới máy chủ. Vui lòng kiểm tra mạng và thử lại.";
   }

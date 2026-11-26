@@ -1,7 +1,15 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uth_room_booking/core/router/app_router.dart';
 import 'package:uth_room_booking/features/auth/models/user_role.dart';
+import 'package:uth_room_booking/features/booking/data/asset_catalog.dart';
+import 'package:uth_room_booking/features/technician/data/maintenance_proposal_store.dart';
+import 'package:uth_room_booking/features/technician/models/maintenance_proposal.dart';
 import 'package:uth_room_booking/features/technician/presentation/technician_work_view.dart';
 import 'package:uth_room_booking/features/technician/widgets/technician_task_card.dart';
 import 'package:uth_room_booking/shared/layouts/main_shell.dart';
@@ -9,6 +17,58 @@ import 'package:uth_room_booking/shared/layouts/main_shell.dart';
 import 'support/widget_test_helpers.dart';
 
 void main() {
+  test('đề xuất dùng ID của thiết bị đã chọn khi tên trùng nhau', () async {
+    var inserts = 0;
+    final client = SupabaseClient(
+      'https://example.com',
+      'test-key',
+      authOptions: const AuthClientOptions(autoRefreshToken: false),
+      httpClient: MockClient((request) async {
+        final Object response;
+        switch (request.url.pathSegments.last) {
+          case 'rooms':
+            expect(request.method, 'GET');
+            response = [];
+          case 'equipment':
+            expect(request.method, 'GET');
+            response = [
+              {'id': 'first', 'name': 'Micro', 'location': 'H003'},
+              {'id': 'second', 'name': 'Micro', 'location': 'H509'},
+            ];
+          case 'maintenance_proposals':
+            expect(request.method, 'POST');
+            expect(jsonDecode(request.body), {
+              'equipment_id': 'second',
+              'reason': 'Mất tiếng',
+            });
+            inserts++;
+            response = {
+              'id': 'proposal',
+              'equipment_id': 'second',
+              'reason': 'Mất tiếng',
+              'status': 'pending',
+              'equipment': {'name': 'Micro', 'location': 'H509'},
+            };
+          default:
+            fail('Yêu cầu không mong đợi: ${request.url.path}');
+        }
+        return http.Response(
+          jsonEncode(response),
+          200,
+          request: request,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+    addTearDown(client.dispose);
+    final catalog = await loadAssetCatalog(client);
+    final saved = await MaintenanceProposalStore(client).submit(
+      MaintenanceProposal(asset: catalog.equipment.last, reason: 'Mất tiếng'),
+    );
+    expect(saved.asset.id, 'second');
+    expect(inserts, 1);
+  });
+
   testWidgets('phân biệt danh sách đang tải và danh sách trống', (
     tester,
   ) async {
@@ -21,7 +81,6 @@ void main() {
             loading: loading,
             onFilter: (_) {},
             onChanged: () {},
-            onSchedule: () {},
           ),
         ),
       ),
@@ -66,31 +125,19 @@ void main() {
     expect(tester.widget<BottomNavigationBar>(navigation).currentIndex, 0);
     await tester.tap(find.text('Phòng B2-304'));
     await tester.pumpAndSettle();
-    expect(find.text('Tạo đề xuất bảo trì'), findsOneWidget);
+    expect(find.text('Lý do bảo trì'), findsOneWidget);
     expect(find.text('Phòng B2-304'), findsWidgets);
-    await tester.enterText(find.byType(TextFormField), 'Vệ sinh máy trạm');
-    expect(find.byType(CalendarDatePicker), findsNothing);
-    final schedule = find.text('Thời gian dự kiến (tùy chọn)');
-    await tester.ensureVisible(schedule);
-    await tester.tap(schedule);
-    await tester.pumpAndSettle();
-    final calendar = find.byType(CalendarDatePicker);
-    expect(calendar, findsOneWidget);
-    final picker = tester.widget<CalendarDatePicker>(calendar);
-    picker.onDateChanged(picker.firstDate);
-    await tester.pumpAndSettle();
-    expect(calendar, findsNothing);
-    expect(find.text('Ca dự kiến'), findsOneWidget);
-    final clearSchedule = find.text('Bỏ thời gian dự kiến');
-    await tester.ensureVisible(clearSchedule);
-    await tester.tap(clearSchedule);
-    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byType(TextFormField),
+      'Chuột hỏng, kho hết hàng thay thế',
+    );
+    expect(find.text('Thời gian dự kiến (tùy chọn)'), findsNothing);
     await tester.ensureVisible(find.text('Gửi đề xuất'));
     await tester.tap(find.text('Gửi đề xuất'));
     await tester.pumpAndSettle();
-    expect(find.text('Vệ sinh máy trạm'), findsOneWidget);
+    expect(find.text('Chuột hỏng, kho hết hàng thay thế'), findsOneWidget);
     expect(find.text('Xem chi tiết'), findsNothing);
-    await tester.tap(find.text('Vệ sinh máy trạm'));
+    await tester.tap(find.text('Chuột hỏng, kho hết hàng thay thế'));
     await tester.pumpAndSettle();
     expect(find.text('Chi tiết đề xuất'), findsOneWidget);
     expect(await tester.binding.handlePopRoute(), isTrue);
@@ -102,7 +149,7 @@ void main() {
     expect(tester.widget<BottomNavigationBar>(navigation).currentIndex, 0);
     await tester.tap(find.text('Thiết bị'));
     await tester.pumpAndSettle();
-    expect(find.text('Vệ sinh máy trạm'), findsNothing);
+    expect(find.text('Chuột hỏng, kho hết hàng thay thế'), findsNothing);
     expect(find.text('Từ chối'), findsOneWidget);
     await tester.tap(find.text('Tạo đề xuất'));
     await tester.pumpAndSettle();
@@ -164,23 +211,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Máy chiếu - H203'), findsOneWidget);
 
-    await tester.tap(find.widgetWithText(TextButton, 'Lịch sử dụng'));
-    await tester.pumpAndSettle();
-    expect(find.text('Lịch sử dụng'), findsOneWidget);
-    expect(find.text('Phòng B2-304'), findsOneWidget);
-    expect(find.text('Đã duyệt'), findsWidgets);
-    expect(tester.widget<BottomNavigationBar>(navigation).currentIndex, 1);
-
-    await tester.tap(find.text('Thiết bị'));
-    await tester.pumpAndSettle();
-    expect(find.text('Ổ điện'), findsOneWidget);
-    await tester.tap(find.byTooltip('Tuần sau'));
-    await tester.pumpAndSettle();
-    expect(find.text('Không có lịch đã duyệt trong ngày này'), findsOneWidget);
-    expect(await tester.binding.handlePopRoute(), isTrue);
-    await tester.pumpAndSettle();
-    expect(find.text('Máy chiếu - H203'), findsOneWidget);
-
+    expect(find.text('Lịch sử dụng'), findsNothing);
     await tester.tap(find.byTooltip('Thông báo'));
     await tester.pumpAndSettle();
     expect(find.text('Sự cố mới cần tiếp nhận'), findsOneWidget);

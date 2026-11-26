@@ -6,6 +6,7 @@ import '../../features/incident_report/data/incident_report_store.dart';
 import '../../features/notifications/data/notice_store.dart';
 import '../../features/notifications/models/app_notice.dart';
 import '../../features/technician/models/technician_task.dart';
+import '../../features/technician/controllers/maintenance_proposal_controller.dart';
 import '../../features/technician/data/technician_incident_store.dart';
 
 abstract final class AppRoute {
@@ -35,6 +36,7 @@ typedef NotificationsRouteArgs = ({
   BookingStore? bookingStore,
   IncidentReportStore? incidentStore,
   TechnicianIncidentStore? technicianStore,
+  MaintenanceProposalController? maintenanceController,
   int? initialNoticeId,
 });
 

@@ -26,7 +26,7 @@ Chọn cổng theo vai trò rồi đăng nhập bằng email hoặc mã tài kho
 
 - **Sinh viên** đăng ký ca sử dụng phòng máy hoặc thiết bị, theo dõi lịch và gửi báo cáo sự cố.
 - **Giảng viên** đăng ký phòng máy theo lớp học phần, đăng ký thiết bị và có thể đánh dấu cần hỗ trợ ngay trong giờ dạy khi gửi báo cáo.
-- **Nhân viên kỹ thuật** xem báo cáo mới, nhận việc và cập nhật trạng thái xử lý. Đề xuất bảo trì đang chờ luồng duyệt trên web.
+- **Nhân viên kỹ thuật** xem báo cáo mới, nhận việc và cập nhật trạng thái xử lý. Kỹ thuật viên gửi đề xuất bảo trì trên app và nhận kết quả duyệt hoặc từ chối từ web quản trị.
 
 ## Thông báo Android
 

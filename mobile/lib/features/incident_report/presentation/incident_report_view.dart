@@ -21,9 +21,8 @@ class IncidentReportView extends StatefulWidget {
     required this.role,
     required this.queue,
     this.avatar,
-    this.roomNames,
-    this.equipmentNames,
-    this.assetDetails = const {},
+    this.rooms,
+    this.equipment,
     this.store,
     this.loadCourses,
     this.active = true,
@@ -34,9 +33,8 @@ class IncidentReportView extends StatefulWidget {
   final UserRole role;
   final DemoIncidentQueue queue;
   final ImageProvider? avatar;
-  final Iterable<String>? roomNames;
-  final Iterable<String>? equipmentNames;
-  final Map<String, String> assetDetails;
+  final Iterable<IncidentAssetOption>? rooms;
+  final Iterable<IncidentAssetOption>? equipment;
   final IncidentReportStore? store;
   final Future<List<CourseSection>> Function()? loadCourses;
   final bool active;
@@ -149,7 +147,7 @@ class _IncidentReportViewState extends State<IncidentReportView> {
     if (store != null) {
       final fields = <Object?>[
         report.type,
-        report.asset,
+        report.assetId ?? report.asset,
         report.title,
         report.description,
         report.course,
@@ -219,9 +217,8 @@ class _IncidentReportViewState extends State<IncidentReportView> {
               name: widget.name,
               id: widget.id,
               role: widget.role,
-              roomNames: widget.roomNames,
-              equipmentNames: widget.equipmentNames,
-              assetDetails: widget.assetDetails,
+              rooms: widget.rooms,
+              equipment: widget.equipment,
               nextReportId: () =>
                   widget.store == null ? widget.queue.nextId : 0,
               onSubmitted: _submit,

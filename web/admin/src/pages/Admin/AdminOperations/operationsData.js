@@ -14,8 +14,13 @@ export const supportStatuses = {
 };
 
 export const pageSize = 10;
+export const emptyPage = { rows: [], count: 0 };
+export const vietnameseNumber = new Intl.NumberFormat("vi-VN");
+export const bookingSetup = "Chưa áp dụng migration duyệt đăng ký lịch trên Supabase.";
 export const bookingTable = "uth_admin_bookings";
 export const supportTable = "support_requests";
+const maintenanceTable = "maintenance_proposals";
+const incidentTable = "incident_reports";
 const bookingColumns = "id,status,start_time,end_time,created_at,room_id,equipment_id,room_name,equipment_name,requester_name,requester_role";
 const supportColumns = "id,subject,message,reply,created_at,requester:profiles!support_requests_user_id_fkey(full_name,email)";
 const zone = "Asia/Ho_Chi_Minh";
@@ -26,7 +31,7 @@ export const displayDate = (value) => dateFormat.format(new Date(value));
 export const displayTime = (value) => timeFormat.format(new Date(value));
 export const displayDateTime = (value) => dateTimeFormat.format(new Date(value));
 
-function localDay(date) {
+export function localDay(date) {
   return new Date(date.getTime() + 7 * 3600000).toISOString().slice(0, 10);
 }
 
@@ -77,7 +82,7 @@ export function listBookings(client, { status, type, date, search, page }, signa
   let query = client.from(bookingTable).select(bookingColumns, { count: "exact" });
   if (status) query = query.eq("status", status);
   if (type) query = query.not(type, "is", null);
-  if (date) query = query.gte("start_time", startOfDay(date)).lt("start_time", startOfDay(addDays(date, 1)));
+  if (date) query = query.gte("created_at", startOfDay(date)).lt("created_at", startOfDay(addDays(date, 1)));
   if (search.trim()) query = query.or(searchFilter(["booking_code", "requester_name", "room_name", "equipment_name"], search));
   return pageOf(query, page, signal);
 }
@@ -113,6 +118,33 @@ export async function decideBooking(client, id, decision) {
     throw { userMessage: "Ca đăng ký đã bắt đầu. Bạn vẫn có thể từ chối đăng ký." };
   }
   if (error) throw error;
+}
+
+export function listMaintenanceProposals(client, { page, pending, id, assetType }, signal) {
+  let query = client.from(maintenanceTable).select(
+    "id,reason,status,created_at,rooms(name),equipment(name),profiles(full_name)",
+    { count: "exact" },
+  );
+  if (pending) query = query.eq("status", "pending");
+  if (id) query = query.eq("id", id);
+  if (assetType === "room") query = query.not("room_id", "is", null);
+  if (assetType === "equipment") query = query.not("equipment_id", "is", null);
+  return pageOf(query, page, signal);
+}
+
+export async function decideMaintenanceProposal(client, id, status) {
+  const { data, error } = await client.from(maintenanceTable)
+    .update({ status }).eq("id", id).eq("status", "pending")
+    .select("id").maybeSingle().abortSignal(AbortSignal.timeout(15000));
+  if (error) throw error;
+  if (!data) throw { userMessage: "Đề xuất đã thay đổi. Vui lòng kiểm tra lại." };
+}
+
+export async function deleteMaintenanceProposal(client, id) {
+  const { data, error } = await client.from(maintenanceTable)
+    .delete().eq("id", id).select("id").maybeSingle().abortSignal(AbortSignal.timeout(15000));
+  if (error) throw error;
+  if (!data) throw { userMessage: "Đề xuất không còn khả dụng hoặc bạn không có quyền xoá." };
 }
 
 export function listSupport(client, { status, search, page }, signal) {
@@ -152,7 +184,9 @@ export function loadOverviewCounts(client, signal) {
       countRows(exactCount(client, "equipment"), signal),
     ]),
     countRows(exactCount(client, bookingTable).eq("status", "pending"), signal),
-    countPendingSupport(client, signal),
+    countRows(exactCount(client, maintenanceTable).eq("status", "pending"), signal),
+    countRows(exactCount(client, incidentTable).eq("status", "open"), signal),
+    countRows(exactCount(client, incidentTable).eq("status", "in_progress"), signal),
   ]);
 }
 
@@ -182,19 +216,27 @@ export async function loadRecentActivity(client, signal) {
     return data;
   }
 
-  const [bookings, support] = await Promise.allSettled([
+  const [bookings, incidents, proposals] = await Promise.allSettled([
     latest(bookingTable, "id,created_at,room_name,equipment_name,requester_name"),
-    latest(supportTable, "id,subject,created_at"),
+    latest(incidentTable, "id,created_at,report_number,title,room_id"),
+    latest(maintenanceTable, "id,created_at,rooms(name),equipment(name)"),
   ]);
   const rows = [
     ...(bookings.value ?? []).map((row) => ({
       id: row.id, createdAt: row.created_at, title: `Đăng ký ${bookingAsset(row)}`, description: row.requester_name,
       path: `/managercalendar?ma=${row.id}`, tone: "blue", icon: "calendar-plus",
     })),
-    ...(support.value ?? []).map((row) => ({
-      id: row.id, createdAt: row.created_at, title: row.subject, description: "Yêu cầu hỗ trợ",
-      path: `/managersupport?ma=${row.id}`, tone: "violet", icon: "message",
+    ...(incidents.value ?? []).map((row) => ({
+      id: row.id, createdAt: row.created_at, title: row.title, description: "Báo cáo sự cố",
+      path: `/managerassignment?loai=${row.room_id ? "room" : "equipment"}&ma=${row.report_number}`,
+      tone: "green", icon: "screwdriver-wrench",
+    })),
+    ...(proposals.value ?? []).map((row) => ({
+      id: row.id, createdAt: row.created_at,
+      title: row.rooms?.name || row.equipment?.name || "Tài sản",
+      description: "Đề xuất bảo trì",
+      path: `/equipment-proposals?ma=${row.id}`, tone: "violet", icon: "clipboard-list",
     })),
   ].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)).slice(0, 3);
-  return { rows, error: bookings.reason || support.reason };
+  return { rows, error: bookings.reason || incidents.reason || proposals.reason };
 }

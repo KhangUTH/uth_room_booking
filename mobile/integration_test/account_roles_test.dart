@@ -8,8 +8,12 @@ import 'package:uth_room_booking/features/auth/models/user_role.dart';
 import 'package:uth_room_booking/features/auth/presentation/login_page.dart';
 import 'package:uth_room_booking/features/auth/widgets/academic_login_form.dart';
 import 'package:uth_room_booking/features/auth/widgets/technician_login_sheet.dart';
+import 'package:uth_room_booking/features/booking/data/booking_store.dart';
+import 'package:uth_room_booking/features/booking/models/booking.dart';
 import 'package:uth_room_booking/features/booking/presentation/schedule_view.dart';
+import 'package:uth_room_booking/features/booking/widgets/booking_history_card.dart';
 import 'package:uth_room_booking/features/incident_report/presentation/incident_report_view.dart';
+import 'package:uth_room_booking/features/profile/presentation/profile_view.dart';
 import 'package:uth_room_booking/features/technician/presentation/technician_work_view.dart';
 import 'package:uth_room_booking/shared/layouts/bottom_navigation_bar.dart';
 import 'package:uth_room_booking/shared/layouts/main_shell.dart';
@@ -20,6 +24,9 @@ typedef _Account = ({UserRole role, String login, String password});
 const _demoPassword = 'uth-lab-test';
 const _supaUrl = String.fromEnvironment('TEST_SUPABASE_URL');
 const _supaKey = String.fromEnvironment('TEST_SUPABASE_PUBLISHABLE_KEY');
+const _adminEmail = String.fromEnvironment('TEST_ADMIN_EMAIL');
+const _adminPassword = String.fromEnvironment('TEST_ADMIN_PASSWORD');
+const _allowTestWrites = bool.fromEnvironment('TEST_ALLOW_WRITES');
 const _liveAccounts = <_Account>[
   (
     role: UserRole.student,
@@ -88,6 +95,71 @@ void main() {
         _supaKey.isEmpty ||
         _liveAccounts.any((a) => a.login.isEmpty || a.password.isEmpty),
   );
+
+  for (final (decision, fixtureId) in [
+    ('approved', const String.fromEnvironment('TEST_APPROVE_BOOKING_ID')),
+    ('rejected', const String.fromEnvironment('TEST_REJECT_BOOKING_ID')),
+  ]) {
+    final student = _liveAccounts.first;
+    testWidgets(
+      'Supabase: Lịch tự cập nhật khi admin chuyển đơn sang $decision',
+      (tester) async {
+        final client = SupabaseClient(_supaUrl, _supaKey);
+        final admin = SupabaseClient(_supaUrl, _supaKey);
+        try {
+          await _mountLogin(tester, LoginPage(supabase: client), client);
+          await _signIn(tester, student);
+          final booking = await BookingStore(client).bookingById(fixtureId);
+          expect(
+            booking,
+            isNotNull,
+            reason: 'Đơn phải thuộc sinh viên thử nghiệm.',
+          );
+          expect(booking!.status, BookingStatus.pending);
+          await _tap(tester, _tab('Lịch'));
+          await _waitFor(tester, find.byType(ScheduleView));
+          await _dismissBookingHint(tester);
+          await _tap(tester, find.text('Của tôi'));
+          await _tap(tester, find.text('Tất cả ngày'));
+
+          Finder cardWith(BookingStatus status) => find.byWidgetPredicate(
+            (widget) =>
+                widget is BookingHistoryCard &&
+                widget.booking.slot == booking.slot &&
+                widget.booking.status == status,
+          );
+          await _waitFor(tester, cardWith(BookingStatus.pending));
+          await admin.auth.signInWithPassword(
+            email: _adminEmail,
+            password: _adminPassword,
+          );
+          await admin.rpc<void>(
+            'uth_admin_decide_booking',
+            params: {'booking_id': fixtureId, 'decision': decision},
+          );
+          await _waitFor(
+            tester,
+            cardWith(BookingStatus.values.byName(decision)),
+          );
+        } finally {
+          await tester.pumpWidget(const SizedBox.shrink());
+          await client.dispose();
+          await admin.dispose();
+        }
+      },
+      skip:
+          !_allowTestWrites ||
+          [
+            _supaUrl,
+            _supaKey,
+            _adminEmail,
+            _adminPassword,
+            fixtureId,
+            student.login,
+            student.password,
+          ].any((value) => value.isEmpty),
+    );
+  }
 }
 
 Future<void> _exerciseRoles(
@@ -96,15 +168,7 @@ Future<void> _exerciseRoles(
   List<_Account> accounts, {
   SupabaseClient? client,
 }) async {
-  await tester.pumpWidget(
-    MaterialApp(
-      theme: AppTheme.light,
-      home: login,
-      onGenerateRoute: (settings) => settings.name == AppRoute.login
-          ? MaterialPageRoute<void>(settings: settings, builder: (_) => login)
-          : AppRouter.onGenerateRoute(settings, supabase: client),
-    ),
-  );
+  await _mountLogin(tester, login, client);
 
   for (final account in accounts) {
     await _signIn(tester, account);
@@ -120,19 +184,46 @@ Future<void> _exerciseRoles(
       expect(_tab('Công việc'), findsNothing);
       await _tap(tester, _tab('Lịch'));
       await _waitFor(tester, find.byType(ScheduleView));
-      await tester.pump(const Duration(milliseconds: 500));
-      final acknowledged = find.text('Đã hiểu');
-      if (acknowledged.evaluate().isNotEmpty) await _tap(tester, acknowledged);
+      await _dismissBookingHint(tester);
       await _tap(tester, _tab('Báo cáo'));
       await _waitFor(tester, find.byType(IncidentReportView));
     }
 
     await _tap(tester, _tab('Cá nhân'));
-    await _tap(tester, find.text('Đăng xuất'));
+    final logout = find.widgetWithText(OutlinedButton, 'Đăng xuất');
+    await tester.scrollUntilVisible(
+      logout,
+      200,
+      scrollable: find.descendant(
+        of: find.byType(ProfileView),
+        matching: find.byType(Scrollable),
+      ),
+    );
+    await _tap(tester, logout);
     await _tap(tester, find.widgetWithText(TextButton, 'Đăng xuất'));
     await _waitFor(tester, find.byType(LoginPage));
     expect(find.byType(MainShell), findsNothing);
   }
+}
+
+Future<void> _mountLogin(
+  WidgetTester tester,
+  LoginPage login,
+  SupabaseClient? client,
+) => tester.pumpWidget(
+  MaterialApp(
+    theme: AppTheme.light,
+    home: login,
+    onGenerateRoute: (settings) => settings.name == AppRoute.login
+        ? MaterialPageRoute<void>(settings: settings, builder: (_) => login)
+        : AppRouter.onGenerateRoute(settings, supabase: client),
+  ),
+);
+
+Future<void> _dismissBookingHint(WidgetTester tester) async {
+  await tester.pump(const Duration(milliseconds: 500));
+  final acknowledged = find.text('Đã hiểu');
+  if (acknowledged.evaluate().isNotEmpty) await _tap(tester, acknowledged);
 }
 
 Finder _tab(String label) => find.descendant(

@@ -14,12 +14,12 @@ class MaintenanceProposal {
   const MaintenanceProposal({
     required this.asset,
     required this.reason,
-    this.schedule,
+    this.id,
     this.status = MaintenanceStatus.pending,
   });
 
   final BookingAsset asset;
+  final String? id;
   final String reason;
-  final BookingSlot? schedule;
   final MaintenanceStatus status;
 }

@@ -14,7 +14,6 @@ class TechnicianWorkView extends StatelessWidget {
     required this.filter,
     required this.onFilter,
     required this.onChanged,
-    required this.onSchedule,
     this.loading = false,
     this.onRefresh,
     this.onRetry,
@@ -24,7 +23,6 @@ class TechnicianWorkView extends StatelessWidget {
   final TaskFilter? filter;
   final ValueChanged<TaskFilter?> onFilter;
   final VoidCallback onChanged;
-  final VoidCallback onSchedule;
   final bool loading;
   final RefreshCallback? onRefresh;
   final VoidCallback? onRetry;
@@ -53,28 +51,7 @@ class TechnicianWorkView extends StatelessWidget {
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(16),
       children: [
-        Row(
-          children: [
-            const Expanded(child: TechnicianPageTitle('Công việc kỹ thuật')),
-            const SizedBox(width: 8),
-            TextButton.icon(
-              onPressed: onSchedule,
-              style: TextButton.styleFrom(
-                backgroundColor: const Color(0xFFE0F0F0),
-                foregroundColor: AppColors.primary,
-                minimumSize: const Size(0, 32),
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                textStyle: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-                shape: const StadiumBorder(),
-              ),
-              icon: const Icon(Icons.calendar_month_outlined, size: 15),
-              label: const Text('Lịch sử dụng'),
-            ),
-          ],
-        ),
+        const TechnicianPageTitle('Công việc kỹ thuật'),
         const SizedBox(height: 10),
         _buildFilters(),
         const SizedBox(height: 10),

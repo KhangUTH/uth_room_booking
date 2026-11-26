@@ -38,9 +38,8 @@ class IncidentReportForm extends StatefulWidget {
     required this.nextReportId,
     required this.onSubmitted,
     this.avatar,
-    this.roomNames,
-    this.equipmentNames,
-    this.assetDetails = const {},
+    this.rooms,
+    this.equipment,
     this.loadCourses,
   });
 
@@ -50,9 +49,8 @@ class IncidentReportForm extends StatefulWidget {
   final int Function() nextReportId;
   final Future<bool> Function(IncidentReport, ValueChanged<bool>) onSubmitted;
   final ImageProvider? avatar;
-  final Iterable<String>? roomNames;
-  final Iterable<String>? equipmentNames;
-  final Map<String, String> assetDetails;
+  final Iterable<IncidentAssetOption>? rooms;
+  final Iterable<IncidentAssetOption>? equipment;
   final Future<List<CourseSection>> Function()? loadCourses;
 
   @override
@@ -73,21 +71,24 @@ class _IncidentReportFormState extends State<IncidentReportForm> {
       widget.loadCourses?.call() ?? Future.value(sampleTeachingCourses);
   _IncidentType _type = _IncidentType.room;
   bool _needsTeachingSupport = false;
-  String? _asset;
+  IncidentAssetOption? _asset;
   bool _assetMenuOpen = false;
   bool _courseMenuOpen = false;
 
   bool get _isTeachingRoom =>
       widget.role == UserRole.teacher && _type == _IncidentType.room;
 
-  Iterable<String> get _assets => switch (_type) {
+  Iterable<IncidentAssetOption> get _assets => switch (_type) {
     _IncidentType.room =>
-      widget.roomNames ??
+      widget.rooms ??
           sampleRooms
               .where((room) => room.status != 'Bảo trì')
-              .map((room) => room.name),
+              .map((room) => (id: null, name: room.name, detail: null)),
     _IncidentType.equipment =>
-      widget.equipmentNames ?? sampleDevices.map((device) => device.name),
+      widget.equipment ??
+          sampleDevices.map(
+            (device) => (id: null, name: device.name, detail: null),
+          ),
   };
 
   InputDecoration _input({String? hint}) {
@@ -153,7 +154,8 @@ class _IncidentReportFormState extends State<IncidentReportForm> {
       title: _title,
       description: _description,
       type: _type.label,
-      asset: asset,
+      asset: asset.name,
+      assetId: asset.id,
       course: _isTeachingRoom ? _course : '',
       needsSupport: _isTeachingRoom && _needsTeachingSupport,
       submittedAt: DateTime.now(),
@@ -254,7 +256,9 @@ class _IncidentReportFormState extends State<IncidentReportForm> {
     _ => _type.icon,
   };
 
-  Widget _buildAssetField(List<String> assets) => FormField<String>(
+  Widget _buildAssetField(
+    List<IncidentAssetOption> assets,
+  ) => FormField<IncidentAssetOption>(
     key: ValueKey(_type),
     initialValue: _asset,
     autovalidateMode: AutovalidateMode.onUserInteractionIfError,
@@ -266,10 +270,10 @@ class _IncidentReportFormState extends State<IncidentReportForm> {
       field: field,
       options: assets,
       hint: _type == _IncidentType.room ? 'Chọn phòng máy' : 'Chọn thiết bị',
-      labelFor: (asset) => asset,
+      labelFor: (asset) => asset.name,
       expanded: _assetMenuOpen,
-      iconFor: _assetIcon,
-      detailFor: (asset) => widget.assetDetails[asset],
+      iconFor: (asset) => _assetIcon(asset?.name),
+      detailFor: (asset) => asset.detail,
       onToggle: () => setState(() {
         _assetMenuOpen = !_assetMenuOpen;
         _courseMenuOpen = false;

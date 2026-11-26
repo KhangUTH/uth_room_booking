@@ -1,7 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/booking.dart';
-import 'asset_catalog.dart';
 
 class BookingStore {
   BookingStore(this._client);
@@ -28,7 +27,7 @@ class BookingStore {
           .isAfter(DateTime.now());
 
   static const _bookingFields =
-      'id,start_time,status,student_count,rooms(name,location,capacity),'
+      'id,room_id,equipment_id,start_time,status,student_count,rooms(name,location,capacity),'
       'equipment(name,location),teaching_sections(code,name)';
 
   Future<Booking?> bookingById(String id) async {
@@ -57,11 +56,13 @@ class BookingStore {
     final course = row['teaching_sections'] as Map<String, dynamic>?;
     final time = _campusTime(row['start_time'] as String);
     final name = asset['name'] as String;
+    final assetId = (row['room_id'] ?? row['equipment_id']) as String;
     return (
       id: row['id'] as String,
       booking: (
-        slot: (date: _day(time), asset: name, index: _index(time)),
+        slot: (date: _day(time), asset: assetId, index: _index(time)),
         asset: (
+          id: assetId,
           name: name,
           detail: asset['location'] as String? ?? '',
           capacity: room?['capacity'] as int? ?? 0,
@@ -76,7 +77,7 @@ class BookingStore {
     );
   }
 
-  Future<Set<BookingSlot>> busySlots(DateTime day, AssetCatalog catalog) async {
+  Future<Set<BookingSlot>> busySlots(DateTime day) async {
     final rows = await _client
         .rpc<List<dynamic>>(
           'mobile_busy_booking_slots',
@@ -85,10 +86,10 @@ class BookingStore {
         .timeout(const Duration(seconds: 10));
     final slots = <BookingSlot>{};
     for (final row in rows) {
-      final name = catalog.namesById[row['room_id'] ?? row['equipment_id']];
+      final assetId = (row['room_id'] ?? row['equipment_id']) as String?;
       final index = _index(_campusTime(row['start_time'] as String));
-      if (name != null && index >= 0) {
-        slots.add((date: day, asset: name, index: index));
+      if (assetId != null && index >= 0) {
+        slots.add((date: day, asset: assetId, index: index));
       }
     }
     return slots;
@@ -106,45 +107,16 @@ class BookingStore {
     ];
   }
 
-  Future<List<Booking>> technicianSchedule(DateTime weekStart) async {
-    final rows = await _client
-        .rpc<List<dynamic>>(
-          'technician_usage_schedule',
-          params: {'week_start': weekStart.toIso8601String().split('T').first},
-        )
-        .timeout(const Duration(seconds: 10));
-    final bookings = <Booking>[];
-    for (final row in rows) {
-      final time = _campusTime(row['starts_at'] as String);
-      final index = _index(time);
-      if (index < 0) continue;
-      final name = row['asset_name'] as String;
-      bookings.add((
-        slot: (date: _day(time), asset: name, index: index),
-        asset: (
-          name: name,
-          detail: row['asset_location'] as String? ?? '',
-          capacity: row['room_capacity'] as int,
-          slots: const <SlotStatus>[],
-        ),
-        section: null,
-        studentCount: null,
-        status: BookingStatus.values.byName(row['status'] as String),
-      ));
-    }
-    return bookings;
-  }
-
   Future<void> create(
     BookingSlot slot,
-    BookingAsset asset,
-    AssetCatalog catalog, {
+    BookingAsset asset, {
     CourseSection? section,
     int? studentCount,
   }) async {
-    final assetId = catalog.namesById.entries
-        .singleWhere((entry) => entry.value == asset.name)
-        .key;
+    final assetId = asset.id;
+    if (assetId == null || slot.asset != assetId) {
+      throw StateError('Đăng ký thiếu ID tài sản hợp lệ.');
+    }
     final sectionId = section == null
         ? null
         : (await _client

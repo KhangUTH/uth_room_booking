@@ -4,7 +4,6 @@ import '../../booking/models/booking.dart';
 import '../controllers/maintenance_proposal_controller.dart';
 import '../models/maintenance_proposal.dart';
 import 'maintenance_asset_field.dart';
-import 'maintenance_schedule_field.dart';
 
 Future<MaintenanceProposal?> showMaintenanceProposalDialog(
   BuildContext context,
@@ -51,102 +50,121 @@ class _MaintenanceForm extends StatefulWidget {
 
 class _MaintenanceFormState extends State<_MaintenanceForm> {
   final _form = GlobalKey<FormState>();
+  final _reasonField = GlobalKey();
+  final _reasonFocus = FocusNode();
+  double _keyboardInset = 0;
   late BookingAsset? _asset = widget.initialAsset;
-  final _today = DateUtils.dateOnly(DateTime.now());
-  DateTime? _date;
-  int? _slotIndex;
   String _reason = '';
+  bool _sending = false;
+  bool _sendFailed = false;
 
-  BookingSlot? get _schedule {
-    final asset = _asset;
-    final date = _date;
-    final index = _slotIndex;
-    if (asset == null || date == null || index == null) return null;
-    return (date: date, asset: asset.name, index: index);
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
+    if (keyboardInset > _keyboardInset && _reasonFocus.hasFocus) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final fieldContext = _reasonField.currentContext;
+        if (fieldContext != null && _reasonFocus.hasFocus) {
+          Scrollable.ensureVisible(
+            fieldContext,
+            alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+          );
+        }
+      });
+    }
+    _keyboardInset = keyboardInset;
   }
 
-  void _submit() {
-    if (!_form.currentState!.validate()) return;
+  @override
+  void dispose() {
+    _reasonFocus.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (_sending || !_form.currentState!.validate()) return;
     _form.currentState!.save();
-    Navigator.pop(
-      context,
-      MaintenanceProposal(asset: _asset!, reason: _reason, schedule: _schedule),
-    );
+    final proposal = MaintenanceProposal(asset: _asset!, reason: _reason);
+    setState(() {
+      _sending = true;
+      _sendFailed = false;
+    });
+    try {
+      await widget.controller.submit(proposal);
+      if (mounted) Navigator.pop(context, proposal);
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _sending = false;
+          _sendFailed = true;
+        });
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final schedule = _schedule;
-    return SafeArea(
-      top: false,
-      child: SingleChildScrollView(
-        padding: EdgeInsets.fromLTRB(
-          16,
-          0,
-          16,
-          16 + MediaQuery.viewInsetsOf(context).bottom,
-        ),
-        child: Form(
-          key: _form,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            spacing: 12,
-            children: [
-              Center(
-                child: Image.asset(
-                  'assets/images/logo/logo.jpg',
-                  height: 40,
-                  fit: BoxFit.contain,
-                  semanticLabel: 'Logo UTH',
-                ),
+    return PopScope(
+      canPop: !_sending,
+      child: Padding(
+        padding: EdgeInsets.only(bottom: _keyboardInset),
+        child: SafeArea(
+          top: false,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Form(
+              key: _form,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                spacing: 12,
+                children: [
+                  Center(
+                    child: Image.asset(
+                      'assets/images/logo/logo.jpg',
+                      height: 40,
+                      fit: BoxFit.contain,
+                      semanticLabel: 'Logo UTH',
+                    ),
+                  ),
+                  Text(
+                    'Đề xuất bảo trì',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  MaintenanceAssetField(
+                    rooms: widget.rooms,
+                    catalogAssets: widget.assets,
+                    initialValue: _asset,
+                    onChanged: (asset) => setState(() => _asset = asset),
+                  ),
+                  if (_asset case final asset?) Text(asset.detail),
+                  TextFormField(
+                    key: _reasonField,
+                    focusNode: _reasonFocus,
+                    enabled: !_sending,
+                    maxLength: 2000,
+                    decoration: const InputDecoration(
+                      labelText: 'Lý do bảo trì',
+                      alignLabelWithHint: true,
+                      hintText: 'Mô tả thiết bị hư hỏng và lý do cần thay mới',
+                    ),
+                    minLines: 2,
+                    maxLines: 4,
+                    validator: (value) => value == null || value.trim().isEmpty
+                        ? 'Nhập lý do bảo trì'
+                        : null,
+                    onSaved: (value) => _reason = value!.trim(),
+                  ),
+                  if (_sendFailed)
+                    const Text('Chưa gửi được đề xuất. Vui lòng thử lại.'),
+                  FilledButton(
+                    onPressed: _sending ? null : _submit,
+                    child: Text(_sending ? 'Đang gửi…' : 'Gửi đề xuất'),
+                  ),
+                ],
               ),
-              Text(
-                'Tạo đề xuất bảo trì',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              MaintenanceAssetField(
-                rooms: widget.rooms,
-                catalogAssets: widget.assets,
-                initialValue: _asset,
-                onChanged: (asset) => setState(() => _asset = asset),
-              ),
-              if (_asset case final asset?) Text(asset.detail),
-              TextFormField(
-                decoration: const InputDecoration(
-                  labelText: 'Lý do bảo trì',
-                  alignLabelWithHint: true,
-                  hintText: 'Mô tả việc cần kiểm tra hoặc bảo trì',
-                ),
-                minLines: 2,
-                maxLines: 4,
-                validator: (value) => value == null || value.trim().isEmpty
-                    ? 'Nhập lý do bảo trì'
-                    : null,
-                onSaved: (value) => _reason = value!.trim(),
-              ),
-              MaintenanceScheduleField(
-                today: _today,
-                date: _date,
-                slotIndex: _slotIndex,
-                onDateChanged: (date) => setState(() => _date = date),
-                onSlotChanged: (index) => setState(() => _slotIndex = index),
-                onClear: () => setState(() {
-                  _date = null;
-                  _slotIndex = null;
-                }),
-              ),
-              if (schedule != null &&
-                  widget.controller.conflictsWithBooking(schedule))
-                Text(
-                  'Trùng ca ${bookingStartTimes[schedule.index]} – ${bookingEndTimes[schedule.index]} đã được duyệt.',
-                  style: const TextStyle(color: Color(0xFF815200)),
-                ),
-              FilledButton(
-                onPressed: _submit,
-                child: const Text('Gửi đề xuất'),
-              ),
-            ],
+            ),
           ),
         ),
       ),

@@ -8,6 +8,7 @@ import android.app.PendingIntent
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.drawable.Icon
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
@@ -85,6 +86,7 @@ class MainActivity : FlutterActivity() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         val notification = foregroundNotificationBuilder()
+            .setLargeIcon(Icon.createWithResource(this, applicationInfo.icon))
             .setContentTitle(title)
             .setContentText(body)
             .setStyle(Notification.BigTextStyle().bigText(body))
@@ -110,7 +112,7 @@ class MainActivity : FlutterActivity() {
         } else {
             Notification.Builder(this)
         }
-        return builder.setSmallIcon(applicationInfo.icon)
+        return builder.setSmallIcon(R.drawable.ic_notification)
     }
 
     private fun openAppSettings(): Boolean {

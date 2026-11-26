@@ -28,6 +28,7 @@ function AppRouters() {
                     <Route index element={<OperationsRoute screen="overview" />} />
                     <Route path="/manageruser" element={<ManagerUser />} />
                     <Route path="/managersupport" element={<OperationsRoute screen="support" />} />
+                    <Route path="/equipment-proposals" element={<OperationsRoute screen="equipmentProposals" />} />
                     <Route path="/managercalendar" element={<OperationsRoute screen="bookings" />} />
                     <Route path="/managerassignment" element={<ManagerAssignment />} />
                     <Route path="/facilities" element={<FacilitiesLayout />}>

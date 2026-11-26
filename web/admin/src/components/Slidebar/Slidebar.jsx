@@ -8,9 +8,9 @@ const menuItems = [
     { to: "/", label: "Tổng quan", icon: "fa-solid fa-chart-line", end: true },
     { to: "/manageruser", label: "Người dùng", icon: "fa-solid fa-users" },
     { to: "/facilities", label: "Phòng & Thiết bị", icon: "fa-solid fa-building" },
-    { to: "/managerassignment", label: "Phân công sự cố", icon: "fa-solid fa-screwdriver-wrench" },
+    { to: "/managerassignment", label: "Theo dõi sự cố", icon: "fa-solid fa-screwdriver-wrench" },
     { to: "/managercalendar", label: "Đăng ký lịch", icon: "fa-regular fa-calendar-days" },
-    { to: "/managersupport", label: "Trợ giúp", icon: "fa-solid fa-headset" },
+    { to: "/equipment-proposals", label: "Đề xuất bảo trì", icon: "fa-solid fa-clipboard-list" },
 ];
 
 function Slidebar({ isOpen, setIsOpen }) {
@@ -39,8 +39,7 @@ function Slidebar({ isOpen, setIsOpen }) {
         <aside className={`sidebar${isOpen ? "" : " close"}`} aria-label="Thanh điều hướng quản trị">
             <div className="sidebar-header">
                 <Link className="sidebar-brand" to="/" onClick={closeOnMobile} aria-label="UTH - Tổng quan">
-                    <strong>UTH</strong>
-                    <span>Quản trị</span>
+                    <img className="uth-brand-logo" src={`${import.meta.env.BASE_URL}uth-logo.jpg`} alt="" width="241" height="52" />
                 </Link>
                 <button className="sidebar-toggle" type="button" onClick={() => setIsOpen(!isOpen)}
                     aria-label={isOpen ? "Thu gọn thanh điều hướng" : "Mở rộng thanh điều hướng"}
