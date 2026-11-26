@@ -12,7 +12,7 @@ import '../models/booking.dart';
 import '../widgets/booking_asset_list.dart';
 import '../widgets/booking_calendar.dart';
 import '../widgets/booking_category_tabs.dart';
-import '../widgets/booking_confirmation_sheet.dart';
+import '../widgets/booking_action_dialogs.dart';
 import '../widgets/booking_hint.dart';
 import '../widgets/my_bookings_section.dart';
 
@@ -51,6 +51,7 @@ class _ScheduleViewState extends State<ScheduleView> {
   bool _showAllBookingDates = false;
   int _slotIndex = 0;
   bool _busy = false;
+  bool _refreshing = false;
   bool _saving = false;
   bool _historyFailed = false;
   bool _slotsFailed = false;
@@ -62,11 +63,13 @@ class _ScheduleViewState extends State<ScheduleView> {
       (_isMine ? _bookings.hasHistory : _slotsDay == _date);
   ({String message, bool failed})? _feedback;
   Timer? _feedbackTimer;
+  Timer? _refreshTimer;
   bool _checkingNotice = false;
 
   @override
   void initState() {
     super.initState();
+    _updateRefreshTimer();
     if (widget.active && _bookings.store != null) _refresh();
     if (widget.active) _scheduleUsageNotice();
   }
@@ -96,51 +99,80 @@ class _ScheduleViewState extends State<ScheduleView> {
   @override
   void dispose() {
     _feedbackTimer?.cancel();
+    _refreshTimer?.cancel();
     super.dispose();
   }
 
-  Future<void> _refresh({bool reloadCatalog = false}) async {
+  void _updateRefreshTimer() {
+    _refreshTimer?.cancel();
+    if (!widget.active || _bookings.store == null) return;
+    _refreshTimer = Timer.periodic(const Duration(seconds: 8), (_) {
+      if (!_refreshing &&
+          !_saving &&
+          WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed &&
+          ModalRoute.isCurrentOf(context) == true) {
+        unawaited(_refresh(silent: _hasVisibleData));
+      }
+    });
+  }
+
+  Future<void> _refresh({
+    bool reloadCatalog = false,
+    bool silent = false,
+  }) async {
     final store = _bookings.store;
     if (store == null || widget.catalog == null) return;
     final request = ++_request;
+    _refreshing = true;
     final day = _date;
     setState(() {
-      _busy = true;
-      _historyFailed = false;
-      _slotsFailed = false;
+      _busy = !silent;
     });
     Future<void> load(
       Future<void> Function() operation,
+      VoidCallback onSuccess,
       VoidCallback onFailure,
     ) async {
       try {
         await operation();
-        if (mounted && request == _request) setState(() {});
+        if (mounted && request == _request) setState(onSuccess);
       } catch (_) {
         if (mounted && request == _request) setState(onFailure);
       }
     }
 
     await Future.wait([
-      load(_bookings.refreshHistory, () => _historyFailed = true),
-      load(() async {
-        final freshCatalog = reloadCatalog
-            ? await widget.refreshCatalog?.call()
-            : null;
-        if (!mounted || request != _request) return;
-        final catalog = freshCatalog ?? widget.catalog!;
-        final slots = await store.busySlots(day, catalog);
-        if (!mounted || request != _request) return;
-        _bookings.busy = slots;
-        _slotsDay = day;
-      }, () => _slotsFailed = true),
+      load(
+        _bookings.refreshHistory,
+        () => _historyFailed = false,
+        () => _historyFailed = true,
+      ),
+      load(
+        () async {
+          if (reloadCatalog) await widget.refreshCatalog?.call();
+          if (!mounted || request != _request) return;
+          final slots = await store.busySlots(day);
+          if (!mounted || request != _request) return;
+          _bookings.busy = slots;
+          _slotsDay = day;
+        },
+        () => _slotsFailed = false,
+        () => _slotsFailed = true,
+      ),
     ]);
-    if (mounted && request == _request) setState(() => _busy = false);
+    if (mounted && request == _request) {
+      _refreshing = false;
+      if (_busy) setState(() => _busy = false);
+    }
   }
 
   @override
   void didUpdateWidget(covariant ScheduleView oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (widget.active != oldWidget.active ||
+        widget.bookings != oldWidget.bookings) {
+      _updateRefreshTimer();
+    }
     if (widget.active && !oldWidget.active) _scheduleUsageNotice();
     final request = widget.categoryRequest;
     final changedCategory =
@@ -176,7 +208,9 @@ class _ScheduleViewState extends State<ScheduleView> {
     if (_bookings.role != UserRole.teacher) return rooms;
     final blockedRooms =
         catalog?.roomsUnavailableToTeachers ?? {sampleLibraryRoomName};
-    return rooms.where((room) => !blockedRooms.contains(room.name)).toList();
+    return rooms
+        .where((room) => !blockedRooms.contains(room.bookingKey))
+        .toList();
   }
 
   Future<void> _openBooking(BookingAsset asset) async {
@@ -185,15 +219,14 @@ class _ScheduleViewState extends State<ScheduleView> {
         _bookings.hasStudentRoomBooking(_date, _slotIndex)) {
       return;
     }
-    final slot = (date: _date, asset: asset.name, index: _slotIndex);
-    final store = _bookings.store;
+    final slot = (date: _date, asset: asset.bookingKey, index: _slotIndex);
+    final live = _bookings.store != null;
     var courses = sampleTeachingCourses;
-    if (store != null &&
-        asset.capacity > 0 &&
-        _bookings.role == UserRole.teacher) {
+    final liveCourses = _bookings.liveCoursesFor(asset);
+    if (liveCourses != null) {
       setState(() => _saving = true);
       try {
-        courses = await store.courses();
+        courses = await liveCourses;
       } catch (_) {
         if (mounted) _message('Không tải được lớp học phần. Vui lòng thử lại.');
         return;
@@ -206,46 +239,27 @@ class _ScheduleViewState extends State<ScheduleView> {
         return;
       }
     }
-    final selection = await showModalBottomSheet<BookingSelection>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      constraints: const BoxConstraints(maxWidth: 720),
-      backgroundColor: Colors.transparent,
-      barrierColor: Colors.black26,
-      builder: (_) => BookingConfirmationSheet(
-        slot: slot,
-        asset: asset,
-        role: _bookings.role,
-        courses: courses,
-      ),
+    final selection = await confirmBooking(
+      context,
+      slot: slot,
+      asset: asset,
+      role: _bookings.role,
+      courses: courses,
     );
     if (!mounted || selection == null) return;
-    if (store != null) {
-      await _save(
-        () => store.create(
-          slot,
-          asset,
-          widget.catalog!,
-          section: selection.section,
-          studentCount: selection.studentCount,
-        ),
-        'Đã gửi đăng ký. Trạng thái: Chờ duyệt.',
-        'Không thể đăng ký. Ca có thể đã được đặt hoặc đã bắt đầu.',
-      );
-      return;
-    }
-    final registered = _bookings.register(
-      slot,
-      asset,
-      selection.section,
-      studentCount: selection.studentCount,
-    );
-    _message(
-      registered
-          ? 'Đã tạo đăng ký mẫu. Trạng thái: Chờ duyệt.'
+    await _save(
+      () => _bookings.submit(
+        slot,
+        asset,
+        section: selection.section,
+        studentCount: selection.studentCount,
+      ),
+      live
+          ? 'Đã gửi đăng ký. Trạng thái: Chờ duyệt.'
+          : 'Đã tạo đăng ký mẫu. Trạng thái: Chờ duyệt.',
+      live
+          ? 'Không thể đăng ký. Ca có thể đã được đặt hoặc đã bắt đầu.'
           : 'Ca này hiện không thể đăng ký.',
-      failed: !registered,
     );
   }
 
@@ -264,7 +278,7 @@ class _ScheduleViewState extends State<ScheduleView> {
   }
 
   Future<void> _save(
-    Future<void> Function() operation,
+    Future<bool> Function() operation,
     String success,
     String failure,
   ) async {
@@ -274,13 +288,13 @@ class _ScheduleViewState extends State<ScheduleView> {
       _clearFeedback();
     });
     try {
-      await operation();
-      if (mounted) _message(success, failed: false);
+      final saved = await operation();
+      if (mounted) _message(saved ? success : failure, failed: !saved);
     } catch (_) {
       if (mounted) _message(failure);
     } finally {
       if (mounted) {
-        await _refresh();
+        if (_bookings.store != null) await _refresh();
         if (mounted) setState(() => _saving = false);
       }
     }
@@ -416,35 +430,13 @@ class _ScheduleViewState extends State<ScheduleView> {
   Future<void> _cancelBooking(int index) async {
     if (_saving) return;
     final bookingId = _bookings.savedBookingId(index);
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Hủy lịch đăng ký?'),
-        content: const Text('Ca này sẽ được trả lại danh sách ca trống.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Giữ lịch'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(
-              foregroundColor: const Color(0xFFAD3037),
-            ),
-            child: const Text('Xác nhận'),
-          ),
-        ],
-      ),
-    );
+    final booking = _bookings.bookingAt(index);
+    final confirmed = await confirmBookingCancellation(context);
     if (confirmed != true || !mounted) return;
-    if (bookingId != null) {
-      await _save(
-        () => _bookings.store!.cancel(bookingId),
-        'Đã hủy đăng ký.',
-        'Không thể hủy. Đơn có thể đã đổi trạng thái.',
-      );
-      return;
-    }
-    if (_bookings.cancel(index)) _message('Đã hủy đăng ký.', failed: false);
+    await _save(
+      () => _bookings.cancelBooking(booking, bookingId),
+      'Đã hủy đăng ký.',
+      'Không thể hủy. Đơn có thể đã đổi trạng thái.',
+    );
   }
 }

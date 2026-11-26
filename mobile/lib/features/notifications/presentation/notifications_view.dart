@@ -4,12 +4,15 @@ import 'package:uth_room_booking/theme/app_colors.dart';
 
 import '../../booking/data/booking_store.dart';
 import '../../incident_report/data/incident_report_store.dart';
+import '../../technician/data/technician_incident_store.dart';
+import '../../technician/controllers/maintenance_proposal_controller.dart';
 import '../data/notice_store.dart';
 import '../data/sample_notices.dart';
 import '../models/app_notice.dart';
 import '../widgets/notice_card.dart';
 import '../widgets/notice_details_sheet.dart';
 import '../widgets/notice_search_filters.dart';
+import 'notice_navigation.dart';
 
 const _muted = Color(0xFF596577);
 
@@ -22,6 +25,9 @@ class NotificationsView extends StatefulWidget {
     this.store,
     this.bookingStore,
     this.incidentStore,
+    this.technicianStore,
+    this.maintenanceController,
+    this.initialNoticeId,
   });
 
   final List<AppNotice> notices;
@@ -31,6 +37,9 @@ class NotificationsView extends StatefulWidget {
   final NoticeStore? store;
   final BookingStore? bookingStore;
   final IncidentReportStore? incidentStore;
+  final TechnicianIncidentStore? technicianStore;
+  final MaintenanceProposalController? maintenanceController;
+  final int? initialNoticeId;
 
   @override
   State<NotificationsView> createState() => _NotificationsViewState();
@@ -43,7 +52,26 @@ class _NotificationsViewState extends State<NotificationsView> {
   final _selected = <int>{};
   bool _deleting = false;
   bool _deleteFailed = false;
-  int? _openingIncidentId;
+  int? _openingNoticeId;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialNoticeId case final id?) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _openInitialNotice(id),
+      );
+    }
+  }
+
+  Future<void> _openInitialNotice(int id) async {
+    final store = widget.store;
+    if (store == null || !mounted) return;
+    await store.refresh();
+    if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
+    final notice = store.notices.where((notice) => notice.id == id).firstOrNull;
+    if (notice != null) _openNotice(notice);
+  }
 
   void _toggleSelection(int id) {
     if (_deleting || _pending.contains(id)) return;
@@ -115,7 +143,7 @@ class _NotificationsViewState extends State<NotificationsView> {
   }
 
   void _openNotice(AppNotice notice) {
-    if (_openingIncidentId != null) return;
+    if (_openingNoticeId != null) return;
     FocusManager.instance.primaryFocus?.unfocus();
     final store = widget.store;
     if (store == null) {
@@ -124,9 +152,28 @@ class _NotificationsViewState extends State<NotificationsView> {
       _runAction(notice.id, () => store.markRead(notice.id));
     }
     final reportId = store?.incidentReportId(notice.id);
+    final proposalId = store?.proposalId(notice.id);
+    if (widget.maintenanceController case final controller?
+        when proposalId != null) {
+      _openLinkedNotice(
+        notice.id,
+        () => openProposalNotice(context, notice, controller, proposalId),
+      );
+      return;
+    }
     final incidents = widget.incidentStore;
     if (incidents != null && reportId != null) {
-      _openIncidentNotice(notice.id, incidents, reportId);
+      _openLinkedNotice(
+        notice.id,
+        () => openReporterNotice(context, incidents, reportId),
+      );
+      return;
+    }
+    if (widget.technicianStore case final technician? when reportId != null) {
+      _openLinkedNotice(
+        notice.id,
+        () => openTechnicianNotice(context, notice, technician, reportId),
+      );
       return;
     }
     final bookingId = store?.bookingId(notice.id);
@@ -136,35 +183,13 @@ class _NotificationsViewState extends State<NotificationsView> {
     showNoticeDetails(context, notice, bookingDetails);
   }
 
-  Future<void> _openIncidentNotice(
-    int noticeId,
-    IncidentReportStore incidents,
-    String reportId,
-  ) async {
-    setState(() => _openingIncidentId = noticeId);
-    StoredIncidentReport? entry;
+  Future<void> _openLinkedNotice(int id, Future<void> Function() open) async {
+    setState(() => _openingNoticeId = id);
     try {
-      entry = await incidents.reportById(reportId);
-    } catch (_) {
-      // The inbox can still be used when the report cannot be loaded.
+      await open();
     } finally {
-      if (mounted) setState(() => _openingIncidentId = null);
+      if (mounted) setState(() => _openingNoticeId = null);
     }
-    if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
-    final report = entry;
-    if (report == null) {
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Chưa mở được báo cáo. Bạn có thể xem trong Báo cáo của tôi.',
-            ),
-          ),
-        );
-      return;
-    }
-    showNoticeIncidentDetails(context, incidents, report);
   }
 
   void _toggleSaved(int id, bool saved) {
@@ -269,7 +294,7 @@ class _NotificationsViewState extends State<NotificationsView> {
                         final disabled =
                             _deleting || _pending.contains(notice.id);
                         return NoticeCard(
-                          opening: _openingIncidentId == notice.id,
+                          opening: _openingNoticeId == notice.id,
                           notice: notice,
                           isRead: isRead,
                           saved: saved,

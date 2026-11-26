@@ -48,9 +48,9 @@ insert into public.equipment values
 insert into public.bookings values (1, '10000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000001');
 insert into public.incident_reports values (1, '10000000-0000-0000-0000-000000000003', '20000000-0000-0000-0000-000000000002');
 
-\ir ../sql/03-admin-profile-read.sql
-\ir ../sql/04-admin-rooms-crud.sql
-\ir ../sql/05-admin-equipment-crud.sql
+\ir ../03-admin-profile-read.sql
+\ir ../04-admin-rooms-crud.sql
+\ir ../05-admin-equipment-crud.sql
 
 set role authenticated;
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000001', false);

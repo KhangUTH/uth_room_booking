@@ -5,7 +5,6 @@ import '../models/booking.dart';
 typedef AssetCatalog = ({
   List<BookingAsset> rooms,
   List<BookingAsset> equipment,
-  Map<String, String> namesById,
   Set<String> roomsUnavailableToTeachers,
 });
 
@@ -28,23 +27,21 @@ Future<AssetCatalog> loadAssetCatalog(SupabaseClient client) async {
     active ? SlotStatus.free : SlotStatus.maintenance,
     growable: false,
   );
+  final validRooms = rows[0].where((room) => room['capacity'] is int);
   final orderedRooms = [
-    ...rows[0].where((room) => room['is_active'] == true),
-    ...rows[0].where((room) => room['is_active'] != true),
+    ...validRooms.where((room) => room['is_active'] == true),
+    ...validRooms.where((room) => room['is_active'] != true),
   ];
 
   return (
     roomsUnavailableToTeachers: {
       for (final room in rows[0])
-        if (room['allows_teacher_booking'] == false) room['name'] as String,
-    },
-    namesById: {
-      for (final row in rows.expand((group) => group))
-        row['id'] as String: row['name'] as String,
+        if (room['allows_teacher_booking'] == false) room['id'] as String,
     },
     rooms: [
       for (final room in orderedRooms)
         (
+          id: room['id'] as String,
           name: room['name'] as String,
           detail: '${room['location']} · ${room['capacity']} máy',
           capacity: room['capacity'] as int,
@@ -54,6 +51,7 @@ Future<AssetCatalog> loadAssetCatalog(SupabaseClient client) async {
     equipment: [
       for (final device in rows[1])
         (
+          id: device['id'] as String,
           name: device['name'] as String,
           detail: (device['location'] as String?) ?? 'Thiết bị chung',
           capacity: 0,

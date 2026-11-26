@@ -17,6 +17,7 @@ import '../../features/profile/presentation/app_permissions_page.dart';
 import '../../features/room/presentation/room_list_page.dart';
 import '../../features/splash/presentation/splash_screen.dart';
 import '../../features/technician/data/demo_incident_queue.dart';
+import '../../features/technician/controllers/maintenance_proposal_controller.dart';
 import '../../features/technician/data/technician_incident_store.dart';
 import '../../features/technician/presentation/task_details_page.dart';
 import '../../features/technician/presentation/task_evidence_page.dart';
@@ -65,6 +66,10 @@ abstract final class AppRouter {
             supabase != null && args.role == UserRole.technician
             ? TechnicianIncidentStore(supabase)
             : null,
+        maintenanceController:
+            supabase != null && args.role == UserRole.technician
+            ? MaintenanceProposalController(client: supabase)
+            : null,
         faculty: args.faculty,
         incidentQueue: incidentQueue,
         incidentStore: switch ((supabase, supabase?.auth.currentUser?.id)) {
@@ -98,6 +103,9 @@ abstract final class AppRouter {
           store: args.store,
           bookingStore: args.bookingStore,
           incidentStore: args.incidentStore,
+          technicianStore: args.technicianStore,
+          maintenanceController: args.maintenanceController,
+          initialNoticeId: args.initialNoticeId,
         ),
       (AppRoute.technicianTask, TechnicianTaskRouteArgs args) =>
         TaskDetailsPage(task: args.task, onChanged: args.onChanged),

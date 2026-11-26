@@ -13,6 +13,7 @@ import 'package:uth_room_booking/features/auth/models/user_role.dart';
 import 'package:uth_room_booking/features/booking/models/booking.dart';
 import 'package:uth_room_booking/features/incident_report/data/incident_report_store.dart';
 import 'package:uth_room_booking/features/incident_report/models/incident_report.dart';
+import 'package:uth_room_booking/features/incident_report/widgets/incident_report_details_sheet.dart';
 import 'package:uth_room_booking/features/technician/data/demo_incident_queue.dart';
 import 'package:uth_room_booking/features/technician/widgets/technician_task_card.dart';
 import 'package:uth_room_booking/shared/layouts/main_shell.dart';
@@ -44,6 +45,7 @@ class _RetryReportStore extends IncidentReportStore {
         description: report.description,
         type: report.type,
         asset: report.asset,
+        assetId: report.assetId,
         course: report.course,
         needsSupport: report.needsSupport,
         submittedAt: report.submittedAt,
@@ -80,6 +82,7 @@ void main() {
                     name: name,
                     detail: 'Tầng 1',
                     capacity: 20,
+                    id: name == 'Phòng thư viện' ? 'library-id' : null,
                     slots: List.filled(
                       bookingStartTimes.length,
                       name == 'Phòng I101'
@@ -89,8 +92,7 @@ void main() {
                   ),
               ],
               equipment: <BookingAsset>[],
-              namesById: <String, String>{},
-              roomsUnavailableToTeachers: {'Phòng thư viện'},
+              roomsUnavailableToTeachers: {'library-id'},
             ),
           ),
         ),
@@ -151,18 +153,17 @@ void main() {
             expect(lostResponse, isTrue);
             return http.Response.bytes(uploaded, 200);
           }
-          if (path.endsWith('/rooms')) {
-            return http.Response('{"id":"room-id"}', 200, request: request);
-          }
+          expect(path, endsWith('/incident_reports'));
           if (request.method == 'GET') {
             return http.Response('[]', 200, request: request);
           }
           expect(jsonDecode(request.body)['has_photo'], isTrue);
+          expect(jsonDecode(request.body)['room_id'], 'room-id');
           expect(uploadStates, [true, false]);
           return http.Response(
             '{"id":"report-id","report_number":42,"title":"Máy hỏng",'
             '"created_at":"2026-11-17T11:00:00Z","status":"open",'
-            '"has_photo":true,"rooms":{"name":"Phòng A101"}}',
+            '"has_photo":true,"room_id":"room-id","rooms":{"name":"Phòng A101"}}',
             201,
             request: request,
             headers: {'content-type': 'application/json; charset=utf-8'},
@@ -201,12 +202,14 @@ void main() {
         description: 'Màn hình đen',
         type: 'Phòng máy',
         asset: 'Phòng A101',
+        assetId: 'room-id',
         course: '',
         needsSupport: false,
         submittedAt: DateTime.now(),
         photos: [png.buffer.asUint8List(png.offsetInBytes, png.lengthInBytes)],
       ), onPhotoUploadChanged: uploadStates.add);
       expect(result.hasPhoto, isTrue);
+      expect(result.report.assetId, 'room-id');
     });
   }
 
@@ -229,14 +232,30 @@ void main() {
           name: 'Sinh viên kiểm thử',
           id: 'SV01',
           incidentStore: store,
+          loadCatalog: () async => (
+            rooms: <BookingAsset>[],
+            equipment: [
+              for (final location in ['H003', 'H509'])
+                (
+                  id: location,
+                  name: 'Micro',
+                  detail: location,
+                  capacity: 0,
+                  slots: const <SlotStatus>[],
+                ),
+            ],
+            roomsUnavailableToTeachers: <String>{},
+          ),
         ),
       ),
     );
     await tester.tap(find.text('Báo cáo'));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('Thiết bị'));
+    await tester.pumpAndSettle();
     await tester.tap(find.byIcon(Icons.arrow_drop_down));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Phòng A101').last);
+    await tester.tap(find.text('H003'));
     await tester.pumpAndSettle();
     final fields = find.byType(TextFormField);
     await tester.enterText(fields.first, 'Máy không khởi động');
@@ -255,7 +274,11 @@ void main() {
     await tester.pumpAndSettle();
     expect(store.attempts.length, 2);
     expect(store.attempts.toSet(), hasLength(1));
-    await tester.enterText(fields.last, 'Màn hình đen sau khi khởi động');
+    await tester.ensureVisible(find.byIcon(Icons.arrow_drop_down));
+    await tester.tap(find.byIcon(Icons.arrow_drop_down));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('H509'));
+    await tester.pumpAndSettle();
     await tester.ensureVisible(submit);
     await tester.tap(submit);
     await tester.pumpAndSettle();
@@ -264,7 +287,29 @@ void main() {
     expect(find.text('Mã báo cáo #SC-0042'), findsOneWidget);
     expect(find.text('Hủy báo cáo'), findsNothing);
     expect(find.text('Thời gian gửi báo cáo'), findsOneWidget);
-    expect(store.stored?.report.description, 'Màn hình đen sau khi khởi động');
+    expect(store.stored?.report.description, 'Màn hình đen');
+    expect(store.stored?.report.assetId, 'H509');
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    final saved = store.stored!;
+    for (final status in [
+      IncidentStatus.inProgress,
+      IncidentStatus.completed,
+    ]) {
+      store.stored = (
+        id: saved.id,
+        report: saved.report,
+        status: status,
+        updatedAt: saved.report.submittedAt,
+        hasPhoto: saved.hasPhoto,
+        canCancel: false,
+      );
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpAndSettle();
+      final sheet = tester.widget<IncidentReportDetailsSheet>(
+        find.byType(IncidentReportDetailsSheet),
+      );
+      expect(sheet.status, status);
+    }
     await unmountApp(tester);
   });
 

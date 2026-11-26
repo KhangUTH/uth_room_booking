@@ -23,21 +23,79 @@ class _ScheduleStore extends BookingStore {
 
   int calls = 0;
   int historyCalls = 0;
+  List<({String id, Booking booking})> rows = [];
 
   @override
   Future<List<({String id, Booking booking})>> history() async {
     historyCalls++;
-    return [];
+    return rows;
   }
 
   @override
-  Future<Set<BookingSlot>> busySlots(DateTime day, AssetCatalog catalog) async {
+  Future<Set<BookingSlot>> busySlots(DateTime day) async {
     calls++;
     return {};
   }
 }
 
 void main() {
+  test('danh mục vẫn tải phòng hợp lệ khi một phòng thiếu sức chứa', () async {
+    final client = SupabaseClient(
+      'https://example.com',
+      'test-key',
+      authOptions: const AuthClientOptions(autoRefreshToken: false),
+      httpClient: MockClient(
+        (request) async => http.Response(
+          request.url.path.endsWith('/rooms')
+              ? '[{"id":"missing","name":"Phòng cũ","capacity":null,"is_active":true},'
+                    '{"id":"valid","name":"H509","location":"Tầng 5","capacity":32,"is_active":true}]'
+              : '[]',
+          200,
+          request: request,
+          headers: {'content-type': 'application/json'},
+        ),
+      ),
+    );
+    addTearDown(client.dispose);
+    final catalog = await loadAssetCatalog(client);
+    expect(catalog.rooms.map((room) => room.id), ['valid']);
+  });
+
+  test('ca bận và yêu cầu đặt thiết bị dùng ID khi tên bị trùng', () async {
+    final day = DateTime(2026, 11, 24);
+    final client = SupabaseClient(
+      'https://example.com',
+      'test-key',
+      authOptions: const AuthClientOptions(autoRefreshToken: false),
+      httpClient: MockClient((request) async {
+        if (request.url.path.endsWith('/mobile_busy_booking_slots')) {
+          return http.Response(
+            '[{"equipment_id":"first","start_time":"2026-11-24T07:00:00+07:00"}]',
+            200,
+            request: request,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        expect(request.url.path, endsWith('/bookings'));
+        expect(request.method, 'POST');
+        expect(jsonDecode(request.body)['equipment_id'], 'second');
+        return http.Response('', 201, request: request);
+      }),
+    );
+    addTearDown(client.dispose);
+    final store = BookingStore(client);
+    final asset = (
+      id: 'second',
+      name: 'Micro',
+      detail: 'H509',
+      capacity: 0,
+      slots: List.filled(4, SlotStatus.free),
+    );
+    final slot = (date: day, asset: asset.bookingKey, index: 0);
+    expect(await store.busySlots(day), {(date: day, asset: 'first', index: 0)});
+    await store.create(slot, asset);
+  });
+
   testWidgets('quay lại tab Lịch tự tải lại ca trống', (tester) async {
     await useMobileScreen(tester);
     final client = (await tester.runAsync(
@@ -58,7 +116,6 @@ void main() {
           loadCatalog: () async => (
             rooms: sampleBookingRooms,
             equipment: sampleBookingEquipment,
-            namesById: <String, String>{},
             roomsUnavailableToTeachers: {sampleLibraryRoomName},
           ),
         ),
@@ -83,6 +140,33 @@ void main() {
     await tester.tap(find.text('Lịch'));
     await tester.pumpAndSettle();
     expect(store.calls, 2);
+    final today = BookingStore.campusNow;
+    final asset = sampleBookingRooms.first;
+    store.rows = [
+      (
+        id: 'reviewed',
+        booking: (
+          slot: (
+            date: DateTime(today.year, today.month, today.day),
+            asset: asset.bookingKey,
+            index: 0,
+          ),
+          asset: asset,
+          section: null,
+          studentCount: 10,
+          status: BookingStatus.approved,
+        ),
+      ),
+    ];
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump(const Duration(seconds: 8));
+    await tester.pumpAndSettle();
+    expect(find.text('Đã duyệt'), findsOneWidget);
+    expect(store.calls, 3);
+    await tester.tap(find.text('Trang chủ'));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 16));
+    expect(store.calls, 3);
     await unmountApp(tester);
   });
 
@@ -160,7 +244,6 @@ void main() {
             return (
               rooms: sampleBookingRooms,
               equipment: sampleBookingEquipment,
-              namesById: <String, String>{},
               roomsUnavailableToTeachers: {sampleLibraryRoomName},
             );
           },

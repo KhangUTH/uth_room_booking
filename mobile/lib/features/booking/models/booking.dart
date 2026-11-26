@@ -16,6 +16,7 @@ enum BookingStatus {
 }
 
 typedef BookingAsset = ({
+  String? id,
   String name,
   String detail,
   int capacity,
@@ -23,6 +24,10 @@ typedef BookingAsset = ({
 });
 
 typedef BookingSlot = ({DateTime date, String asset, int index});
+
+extension BookingAssetIdentity on BookingAsset {
+  String get bookingKey => id ?? name;
+}
 
 typedef Booking = ({
   BookingSlot slot,

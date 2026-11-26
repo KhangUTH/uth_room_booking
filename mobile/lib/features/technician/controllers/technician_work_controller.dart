@@ -1,4 +1,6 @@
-import 'package:flutter/foundation.dart';
+import 'dart:async';
+
+import 'package:flutter/widgets.dart';
 
 import '../data/demo_incident_queue.dart';
 import '../data/technician_incident_store.dart';
@@ -14,6 +16,8 @@ class TechnicianWorkController extends ChangeNotifier {
   bool _disposed = false;
   bool _loading = false;
   bool _loadFailed = false;
+  bool _refreshing = false;
+  Timer? _timer;
   int _revision = 0;
 
   bool get loading => _loading;
@@ -21,12 +25,24 @@ class TechnicianWorkController extends ChangeNotifier {
   List<TechnicianTask> get jobs =>
       store == null ? [...queue.tasks, ..._sampleJobs] : _liveJobs;
 
-  Future<void> refresh() async {
+  void start({required bool Function() isWorkVisible}) {
+    if (store == null) return;
+    unawaited(refresh());
+    _timer = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed &&
+          isWorkVisible()) {
+        unawaited(refresh(silent: true));
+      }
+    });
+  }
+
+  Future<void> refresh({bool silent = false}) async {
     final source = store;
-    if (source == null || _disposed || _loading) return;
-    _loading = true;
+    if (source == null || _disposed || _refreshing) return;
+    _refreshing = true;
+    _loading = !silent;
     _loadFailed = false;
-    notifyListeners();
+    if (!silent) notifyListeners();
     try {
       while (!_disposed) {
         final revision = _revision;
@@ -43,6 +59,7 @@ class TechnicianWorkController extends ChangeNotifier {
         break;
       }
     } finally {
+      _refreshing = false;
       _loading = false;
       if (!_disposed) notifyListeners();
     }
@@ -57,6 +74,7 @@ class TechnicianWorkController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _timer?.cancel();
     _disposed = true;
     super.dispose();
   }

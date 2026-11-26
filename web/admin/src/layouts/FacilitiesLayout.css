@@ -25,6 +25,8 @@
 }
 
 .facilities-tab:hover { background: #e3eeee; }
+.incident-asset-tabs.facilities-tabs { margin: 0 0 16px; max-width: 100%; }
+.incident-asset-tabs button { border: 0; background: transparent; cursor: pointer; }
 .facilities-tab.active { background: #078b8e; color: white; }
 .facilities-tab:focus-visible { outline: 3px solid #078b8e; outline-offset: 3px; }
 

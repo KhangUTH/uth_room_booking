@@ -1,7 +1,8 @@
-import { NavLink, Outlet } from "react-router-dom";
+import { NavLink, Outlet, useOutletContext } from "react-router-dom";
 import "./FacilitiesLayout.css";
 
 export default function FacilitiesLayout() {
+    const revisions = useOutletContext();
     return (
         <section className="facilities-layout" aria-label="Phòng và thiết bị">
             <nav className="facilities-tabs" aria-label="Chuyển trang phòng và thiết bị">
@@ -14,7 +15,7 @@ export default function FacilitiesLayout() {
                     Thiết bị
                 </NavLink>
             </nav>
-            <Outlet />
+            <Outlet context={revisions} />
         </section>
     );
 }

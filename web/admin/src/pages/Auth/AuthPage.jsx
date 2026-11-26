@@ -1,23 +1,31 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import useAuth from "../../hooks/useAuth.js";
 import { isSupabaseConfigured, supabase } from "../../lib/supabase.js";
 import { authErrorMessage } from "../../lib/authErrors.js";
+import AdminMfaForm from "./AdminMfaForm.jsx";
+import AuthCaptcha from "./AuthCaptcha.jsx";
 import "./AuthPage.css";
 
 export default function AuthPage() {
   const { pathname, state } = useLocation();
   const navigate = useNavigate();
-  const { session, loading, profileLoading, isAdmin, accessError, refreshProfile, signIn, signOut } = useAuth();
+  const { session, loading, profileLoading, isAdmin, mfaRequired, accessError, refreshProfile, signIn, signOut } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [pending, setPending] = useState(false);
+  const requestInFlight = useRef(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [captchaToken, setCaptchaToken] = useState("");
+  const [captchaVersion, setCaptchaVersion] = useState(0);
   const forgot = pathname === "/forgot-password";
   const reset = pathname === "/reset-password";
+  const invalidRecovery = reset && !session;
+  const captchaSiteKey = !reset ? import.meta.env.VITE_TURNSTILE_SITE_KEY : "";
+  const captchaPending = Boolean(captchaSiteKey && !captchaToken);
   const from = state?.from;
   const destination = from?.pathname?.startsWith("/") && !from.pathname.startsWith("//")
     && !["/login", "/forgot-password", "/reset-password"].includes(from.pathname)
@@ -27,7 +35,8 @@ export default function AuthPage() {
   if (session && isAdmin && !forgot && !reset) return <Navigate to={destination} replace />;
 
   async function switchAccount() {
-    if (pending) return;
+    if (requestInFlight.current) return;
+    requestInFlight.current = true;
     setPending(true);
     setError("");
     try {
@@ -36,24 +45,27 @@ export default function AuthPage() {
     } catch (requestError) {
       setError(authErrorMessage(requestError));
     } finally {
+      requestInFlight.current = false;
       setPending(false);
     }
   }
 
   async function handleSubmit(event) {
     event.preventDefault();
-    if (pending || !isSupabaseConfigured) return;
+    if (requestInFlight.current || !isSupabaseConfigured || invalidRecovery || captchaPending) return;
     setError("");
     setNotice("");
     if (reset && password !== confirmPassword) {
       setError("Mật khẩu xác nhận không khớp.");
       return;
     }
+    requestInFlight.current = true;
     setPending(true);
     try {
       if (forgot) {
         const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
           redirectTo: `${window.location.origin}/reset-password`,
+          captchaToken: captchaToken || undefined,
         });
         if (resetError) throw resetError;
         setNotice("Nếu email này có tài khoản, bạn sẽ nhận được liên kết đặt lại mật khẩu. Vui lòng kiểm tra cả thư mục spam.");
@@ -62,28 +74,36 @@ export default function AuthPage() {
         if (updateError) throw updateError;
         navigate("/", { replace: true });
       } else {
-        await signIn(email.trim(), password);
+        await signIn(email.trim(), password, captchaToken || undefined);
       }
     } catch (requestError) {
       setError(authErrorMessage(requestError));
     } finally {
+      if (captchaSiteKey) {
+        setCaptchaToken("");
+        setCaptchaVersion((value) => value + 1);
+      }
+      requestInFlight.current = false;
       setPending(false);
     }
   }
 
   const denied = Boolean(session) && !forgot && !reset;
-  const title = forgot ? "Quên mật khẩu?" : reset ? "Đặt mật khẩu mới" : denied ? "Chưa thể truy cập" : "Đăng nhập quản trị";
+  const verifyingMfa = denied && mfaRequired;
+  const title = forgot ? "Quên mật khẩu?" : reset ? "Đặt mật khẩu mới" : verifyingMfa ? "Xác minh hai bước" : denied ? "Chưa thể truy cập" : "Đăng nhập quản trị";
   const description = forgot
     ? "Nhập email tài khoản để nhận hướng dẫn khôi phục mật khẩu."
     : reset ? "Chọn mật khẩu mới để tiếp tục sử dụng hệ thống."
       : denied ? `Bạn đang đăng nhập bằng ${session.user.email}.`
         : "Dành cho quản trị viên hệ thống phòng học và lịch sử dụng tại UTH.";
-  const invalidRecovery = reset && !session;
 
   return (
     <main className="auth-page">
       <section className="auth-intro" aria-label="UTH Booking Room">
-        <div className="auth-brand"><span className="auth-logo">UTH</span><span>BOOKING ROOM</span></div>
+        <div className="auth-brand">
+          <img className="uth-brand-logo auth-logo" src={`${import.meta.env.BASE_URL}uth-logo.jpg`} alt="Logo Trường Đại học Giao thông Vận tải TP.HCM" width="241" height="52" />
+          <span>BOOKING ROOM</span>
+        </div>
         <div className="auth-intro-content">
           <span className="auth-eyebrow">HỆ THỐNG QUẢN LÝ PHÒNG</span>
           <h1>Không gian học tập.<br />Kết nối hiệu quả.</h1>
@@ -108,7 +128,7 @@ export default function AuthPage() {
           {error && <p className="auth-message auth-error" role="alert">{error}</p>}
           {notice && <p className="auth-message auth-success" role="status">{notice}</p>}
 
-          {denied ? <div className="auth-access-denied">
+          {verifyingMfa ? <AdminMfaForm client={supabase} onSignOut={switchAccount} signingOut={pending} /> : denied ? <div className="auth-access-denied">
             <p className="auth-message auth-error" role="alert">{accessError}</p>
             <button className="auth-submit" type="button" onClick={refreshProfile} disabled={pending}>Kiểm tra lại quyền truy cập</button>
             <button className="auth-secondary" type="button" onClick={switchAccount} disabled={pending}>{pending ? "Đang đăng xuất…" : "Đăng xuất và đổi tài khoản"}</button>
@@ -132,7 +152,8 @@ export default function AuthPage() {
                 <input id="confirm-password" name="confirmPassword" type={showPassword ? "text" : "password"} autoComplete="new-password" minLength={8} value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} required />
               </div>}
               {!forgot && !reset && <div className="auth-options"><Link to="/forgot-password">Quên mật khẩu?</Link></div>}
-              <button className="auth-submit" type="submit" aria-busy={pending}>{pending ? "Đang xử lý…" : forgot ? "Gửi liên kết khôi phục" : reset ? "Lưu mật khẩu mới" : "Đăng nhập"}</button>
+              {captchaSiteKey && <AuthCaptcha key={captchaVersion} siteKey={captchaSiteKey} onToken={setCaptchaToken} />}
+              <button className="auth-submit" type="submit" disabled={captchaPending} aria-busy={pending}>{pending ? "Đang xử lý…" : forgot ? "Gửi liên kết khôi phục" : reset ? "Lưu mật khẩu mới" : "Đăng nhập"}</button>
             </fieldset>
           </form>
           </>}

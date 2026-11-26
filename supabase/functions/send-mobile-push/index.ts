@@ -63,6 +63,7 @@ async function deliver(job: Job, project: string, bearer: string): Promise<boole
       body: JSON.stringify({
         message: {
           token: job.token,
+          data: { uth_notice_id: String(job.notice_id) },
           notification: { title: "UTH Lab", body: "Bạn có thông báo mới." },
           android: {
             ttl: "3600s",

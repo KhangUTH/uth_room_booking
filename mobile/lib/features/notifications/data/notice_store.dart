@@ -22,6 +22,7 @@ class NoticeStore extends ChangeNotifier {
   final saved = <int>{};
   final _bookingIds = <int, String>{};
   final _incidentReportIds = <int, String>{};
+  final _proposalIds = <int, String>{};
   List<AppNotice> notices = [];
   Timer? _timer;
   Future<void>? _refreshing;
@@ -29,14 +30,21 @@ class NoticeStore extends ChangeNotifier {
   bool loading = true;
   bool loadFailed = false;
   int _revision = 0;
+  bool _pushEnabled = false;
+  int? _latestNoticeId;
+  List<Map<String, dynamic>>? _lastRows;
+  final _pollBackoff = Stopwatch();
 
   void start() {
     _restoringPush = _restorePush();
     unawaited(refresh());
-    _timer = Timer.periodic(
-      const Duration(seconds: 30),
-      (_) => unawaited(refresh()),
-    );
+    _timer = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed &&
+          (!_pollBackoff.isRunning ||
+              _pollBackoff.elapsed >= const Duration(seconds: 15))) {
+        unawaited(refresh());
+      }
+    });
   }
 
   Future<void> _restorePush() async {
@@ -64,6 +72,7 @@ class NoticeStore extends ChangeNotifier {
           params: {'device_token': token},
         )
         .timeout(const Duration(seconds: 10));
+    if (!_disposed) _pushEnabled = true;
     return true;
   }
 
@@ -78,6 +87,7 @@ class NoticeStore extends ChangeNotifier {
   Future<void> unregisterPush() async {
     if (!supportsPush) return;
     await _restoringPush;
+    _pushEnabled = false;
     final session = _client.auth.currentSession;
     if (session == null) return;
     await _client
@@ -92,21 +102,38 @@ class NoticeStore extends ChangeNotifier {
 
   String? incidentReportId(int noticeId) => _incidentReportIds[noticeId];
 
+  String? proposalId(int noticeId) => _proposalIds[noticeId];
+
   Future<void> refresh() => _refreshing ??= _load().whenComplete(() {
     _refreshing = null;
   });
 
   Future<void> _load() async {
     final revision = _revision;
+    final wasLoading = loading;
+    final hadFailed = loadFailed;
+    var changed = false;
     try {
       final rows = await _client
           .from('app_notifications')
           .select(
-            'id,booking_id,incident_report_id,title,message,created_at,is_read,is_saved',
+            'id,booking_id,incident_report_id,maintenance_proposal_id,title,message,created_at,is_read,is_saved',
           )
           .order('id', ascending: false)
           .timeout(const Duration(seconds: 10));
       if (_disposed || revision != _revision) return;
+      _pollBackoff
+        ..stop()
+        ..reset();
+      loadFailed = false;
+      final previousRows = _lastRows;
+      if (previousRows != null &&
+          previousRows.length == rows.length &&
+          Iterable<int>.generate(rows.length)
+              .every((index) => mapEquals(previousRows[index], rows[index]))) {
+        return;
+      }
+      changed = true;
       notices = [
         for (final row in rows)
           (
@@ -120,10 +147,14 @@ class NoticeStore extends ChangeNotifier {
       ];
       _bookingIds.clear();
       _incidentReportIds.clear();
+      _proposalIds.clear();
       read.clear();
       saved.clear();
       for (final row in rows) {
         final id = row['id'] as int;
+        if (row['maintenance_proposal_id'] case final String proposalId) {
+          _proposalIds[id] = proposalId;
+        }
         if (row['incident_report_id'] case final String reportId) {
           _incidentReportIds[id] = reportId;
         }
@@ -133,13 +164,36 @@ class NoticeStore extends ChangeNotifier {
         if (row['is_read'] == true) read.add(id);
         if (row['is_saved'] == true) saved.add(id);
       }
-      loadFailed = false;
+      _lastRows = rows;
+      final previousId = _latestNoticeId;
+      final newestId = notices.firstOrNull?.id ?? 0;
+      if (previousId == null || newestId > previousId) {
+        _latestNoticeId = newestId;
+      }
+      if (_pushEnabled &&
+          previousId != null &&
+          WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) {
+        for (final notice in notices.reversed) {
+          if (notice.id <= previousId || read.contains(notice.id)) continue;
+          unawaited(
+            AppPermissions.showForegroundNotification(
+              id: notice.id,
+              title: notice.title,
+              body: notice.message,
+            ),
+          );
+        }
+      }
     } catch (_) {
+      if (_disposed || revision != _revision) return;
       loadFailed = true;
+      _pollBackoff
+        ..reset()
+        ..start();
     } finally {
       if (!_disposed) {
         loading = false;
-        notifyListeners();
+        if (changed || wasLoading || loadFailed != hadFailed) notifyListeners();
       }
     }
   }
@@ -170,11 +224,13 @@ class NoticeStore extends ChangeNotifier {
         .timeout(const Duration(seconds: 10));
     if (_disposed) return;
     _revision++;
+    _lastRows = null;
     notices = notices.where((notice) => !ids.contains(notice.id)).toList();
     read.removeAll(ids);
     saved.removeAll(ids);
     _bookingIds.removeWhere((id, _) => ids.contains(id));
     _incidentReportIds.removeWhere((id, _) => ids.contains(id));
+    _proposalIds.removeWhere((id, _) => ids.contains(id));
     notifyListeners();
   }
 
@@ -188,6 +244,7 @@ class NoticeStore extends ChangeNotifier {
         .timeout(const Duration(seconds: 10));
     if (_disposed) return;
     _revision++;
+    _lastRows = null;
     if (value) {
       flags.add(id);
     } else {

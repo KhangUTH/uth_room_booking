@@ -261,6 +261,48 @@ void main() {
     expect(result?.role, UserRole.technician);
   });
 
+  test(
+    'đăng nhập bằng email gửi qua Edge Function và hiển thị giới hạn',
+    () async {
+      final client = SupabaseClient(
+        'https://example.com',
+        'test-key',
+        authOptions: const AuthClientOptions(autoRefreshToken: false),
+        httpClient: MockClient((request) async {
+          expect(request.url.path, endsWith('/functions/v1/sign-in-by-code'));
+          expect(jsonDecode(request.body), {
+            'email': 'student@example.com',
+            'password': 'test-only',
+            'role': 'student',
+          });
+          return http.Response(
+            '{"code":"over_request_rate_limit"}',
+            429,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+      addTearDown(client.dispose);
+      await expectLater(
+        authenticateWithSupabase(
+          client,
+          null,
+          'student@example.com',
+          'test-only',
+          UserRole.student,
+          false,
+        ),
+        throwsA(
+          isA<AuthException>().having(
+            (error) => error.message,
+            'message',
+            'Bạn thử đăng nhập lại sau ít phút.',
+          ),
+        ),
+      );
+    },
+  );
+
   testWidgets('mất mạng hiện lỗi trong form và cho phép thử lại', (
     tester,
   ) async {
@@ -299,6 +341,40 @@ void main() {
   });
 
   group('Splash', () {
+    testWidgets('logo và hình trường nằm gọn khi đổi kích thước màn hình', (
+      tester,
+    ) async {
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      const screen = MaterialApp(home: SplashScreen());
+      Finder artwork(String path) => find.byWidgetPredicate(
+        (widget) =>
+            widget is Image &&
+            widget.image is AssetImage &&
+            (widget.image as AssetImage).assetName.endsWith(path),
+      );
+      for (final size in const [
+        Size(320, 568),
+        Size(568, 320),
+        Size(800, 1280),
+        Size(1280, 800),
+      ]) {
+        await tester.binding.setSurfaceSize(size);
+        await tester.pumpWidget(screen);
+        final logo = tester.getRect(artwork('logo.jpg'));
+        final school = tester.getRect(artwork('splash_school.jpg'));
+        final bounds = Offset.zero & size;
+        for (final rect in [logo, school]) {
+          expect(rect.left, greaterThanOrEqualTo(bounds.left));
+          expect(rect.top, greaterThanOrEqualTo(bounds.top));
+          expect(rect.right, lessThanOrEqualTo(bounds.right));
+          expect(rect.bottom, lessThanOrEqualTo(bounds.bottom));
+        }
+        expect(logo.overlaps(school), isFalse);
+        expect(tester.takeException(), isNull);
+      }
+      await unmountApp(tester);
+    });
+
     testWidgets('mở đúng Trang chủ khi khôi phục được hồ sơ', (tester) async {
       await useMobileScreen(tester);
       await tester.pumpWidget(

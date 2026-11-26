@@ -95,6 +95,37 @@ class BookingController extends ChangeNotifier {
 
   Booking bookingAt(int index) => _bookings[index].booking;
 
+  Future<List<CourseSection>>? liveCoursesFor(BookingAsset asset) =>
+      asset.capacity > 0 && role == UserRole.teacher ? store?.courses() : null;
+
+  Future<bool> submit(
+    BookingSlot slot,
+    BookingAsset asset, {
+    required CourseSection? section,
+    required int? studentCount,
+  }) async {
+    final source = store;
+    if (source == null) {
+      return register(slot, asset, section, studentCount: studentCount);
+    }
+    await source.create(
+      slot,
+      asset,
+      section: section,
+      studentCount: studentCount,
+    );
+    return true;
+  }
+
+  Future<bool> cancelBooking(Booking booking, String? id) async {
+    if (id != null) {
+      await store!.cancel(id);
+      return true;
+    }
+    final index = _bookings.indexWhere((entry) => entry.booking == booking);
+    return index >= 0 && cancel(index);
+  }
+
   List<int> indicesFor(DateTime? date, {bool cancelledLast = false}) {
     final indices = <int>[];
     final cancelled = <int>[];
@@ -117,7 +148,7 @@ class BookingController extends ChangeNotifier {
       );
 
   SlotStatus statusFor(DateTime date, BookingAsset asset, int index) {
-    final slot = (date: date, asset: asset.name, index: index);
+    final slot = (date: date, asset: asset.bookingKey, index: index);
     if (_bookings.any(
       (entry) => entry.booking.slot == slot && entry.booking.status.holdsSlot,
     )) {

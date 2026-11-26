@@ -3,6 +3,8 @@ import { createClient } from "@supabase/supabase-js";
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
   || import.meta.env.VITE_SUPABASE_ANON_KEY;
+const isLocalHost = typeof window !== "undefined"
+  && ["localhost", "127.0.0.1", "[::1]"].includes(window.location.hostname);
 
 export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseKey);
 
@@ -10,7 +12,7 @@ export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseKey);
 export const supabase = isSupabaseConfigured
   ? createClient(supabaseUrl, supabaseKey, {
       auth: {
-        persistSession: true,
+        persistSession: !isLocalHost,
         autoRefreshToken: true,
         detectSessionInUrl: true,
       },

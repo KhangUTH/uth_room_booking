@@ -5,9 +5,12 @@
 .data-error button { padding: 4px 8px; margin-left: 8px; cursor: pointer; }
 .data-checkbox { display: inline-flex; gap: 8px; align-items: center; color: #345a5c; }
 .data-checkbox input { width: 16px; height: 16px; }
-.data-pagination { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 12px; margin-top: 20px; color: #526e70; }
-.data-pagination button, .data-dialog-footer button { padding: 10px 16px; border: 1px solid #cbdcdd; background: white; color: #066b6e; border-radius: 7px; font-size: 15px; cursor: pointer; }
-.data-management button:disabled, .data-dialog button:disabled { opacity: .5; cursor: not-allowed; }
+.data-account-status { display: flex; flex-wrap: wrap; gap: 12px 24px; }
+.data-dialog-footer button, .data-toolbar-button { padding: 10px 16px; border: 1px solid #cbdcdd; background: white; color: #066b6e; border-radius: 7px; font-size: 15px; cursor: pointer; }
+.data-toolbar-button { display: inline-flex; align-items: center; gap: 8px; }
+.data-toolbar-button { min-height: 42px; white-space: nowrap; }
+.data-toolbar-button:hover:not(:disabled) { background: #edf7f7; }
+.data-management button:disabled, .data-dialog button:disabled, .data-toolbar-button:disabled { opacity: .5; cursor: not-allowed; }
 .data-dialog { position: fixed; inset: 0; margin: auto; width: 640px; max-width: calc(100vw - 32px); max-height: calc(100dvh - 32px); padding: 0; border: 0; border-radius: 12px; color: #29494b; }
 .data-dialog::backdrop { background: #0007; }
 .data-dialog-header { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 16px 24px; background: #078b8e; color: white; }
@@ -29,3 +32,5 @@
 .data-details dd { overflow-wrap: anywhere; white-space: pre-wrap; }
 .data-management td { max-width: 300px; white-space: normal; overflow-wrap: anywhere; }
 @media (max-width: 600px) { .data-form-grid { grid-template-columns: 1fr; } .data-details > div { grid-template-columns: 1fr; gap: 6px; } }
+.data-user-identity { display: grid; gap: 4px; overflow-wrap: anywhere; }
+.data-user-identity span { color: #486568; font-size: .875rem; }

@@ -26,13 +26,13 @@ Chọn cổng theo vai trò rồi đăng nhập bằng email hoặc mã tài kho
 
 - **Sinh viên** đăng ký ca sử dụng phòng máy hoặc thiết bị, theo dõi lịch và gửi báo cáo sự cố.
 - **Giảng viên** đăng ký phòng máy theo lớp học phần, đăng ký thiết bị và có thể đánh dấu cần hỗ trợ ngay trong giờ dạy khi gửi báo cáo.
-- **Nhân viên kỹ thuật** xem báo cáo mới, nhận việc và cập nhật trạng thái xử lý. Đề xuất bảo trì đang chờ luồng duyệt trên web.
+- **Nhân viên kỹ thuật** xem báo cáo mới, nhận việc và cập nhật trạng thái xử lý. Kỹ thuật viên gửi đề xuất bảo trì trên app và nhận kết quả duyệt hoặc từ chối từ web quản trị.
 
 ## Thông báo Android
 
 Hộp thư trong app lấy dữ liệu từ Supabase. Thông báo nhận việc hoặc hoàn tất mở được báo cáo tương ứng từ hộp thư.
 
-Android dùng Firebase Cloud Messaging của project `uth-lab` để hiện thông báo hệ thống. Trong **Cá nhân → Nhận thông báo**, bật công tắc và cấp quyền thông báo trên thiết bị để nhận push khi app chạy nền. Khi tắt, thông báo mới vẫn nằm trong hộp thư. Chạm push hiện mở app, chưa điều hướng thẳng tới nội dung.
+Android dùng Firebase Cloud Messaging của project `uth-lab` để gửi push khi app chạy nền. Khi app đang mở, thông báo mới được đồng bộ từ hộp thư và hiện trong khay Android với nội dung chi tiết. Bật **Cá nhân → Nhận thông báo** và cấp quyền Android để nhận cả hai. Khi tắt, thông báo mới vẫn nằm trong hộp thư. Chạm thông báo mở báo cáo, công việc kỹ thuật hoặc đơn đăng ký tương ứng.
 
 Hàm `send-mobile-push` gửi qua FCM bằng secret `FCM_SERVICE_ACCOUNT_JSON` trong Supabase Edge Function Secrets. Giữ khóa service account ngoài Git và ngoài app. Nếu triển khai sang backend khác, áp dụng migrations, triển khai các Edge Functions và thiết lập [lịch gửi push](supabase/operations/enable_mobile_push.sql).
 
@@ -49,3 +49,12 @@ flutter build apk --debug
 ```
 
 Xem thêm [cách tổ chức mã Flutter](mobile/lib/features/README.md) và [tài liệu backend](supabase/README.md).
+
+## Phát hành APK Android
+
+Workflow [Android Release](.github/workflows/release.yml) build APK khi một tag phiên bản như `v1.0.0` được push lên GitHub. Thay số phiên bản bằng phiên bản cần phát hành.
+
+```powershell
+git tag v1.0.0
+git push origin v1.0.0
+```

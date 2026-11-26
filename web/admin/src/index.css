@@ -46,3 +46,116 @@ html, body {
     width: 100%;
     padding: 20px 30px;
 }
+
+.admin-table {
+    width: 100%;
+    min-width: 700px;
+    border-collapse: collapse;
+    background: #fff;
+    color: #183437;
+    text-align: left;
+    font-size: .875rem;
+    line-height: 1.45;
+}
+
+.admin-table :is(th, td) {
+    padding: 12px 14px;
+    border-top: 1px solid #dce8e8;
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+.admin-table :is(th, td):first-child { padding-left: 20px; }
+.admin-table :is(th, td):last-child { padding-right: 20px; }
+.admin-table th { background: #f0f6f6; color: #3e5b5e; font-weight: 700; white-space: nowrap; }
+.admin-table tbody tr:hover td { background: #f1f8f7; }
+
+.admin-status {
+    display: inline-block;
+    width: fit-content;
+    padding: 4px 9px;
+    border-radius: 6px;
+    font: 700 .875rem/1.45 Arial, Helvetica, sans-serif;
+    white-space: nowrap;
+}
+
+.admin-status--green { background: #dff3e9; color: #145f47; }
+.admin-status--red { background: #fce9e7; color: #9a382e; }
+.admin-status--neutral { background: #e9efef; color: #465c61; }
+.admin-status--amber { background: #fff0d9; color: #784600; }
+.admin-status--blue { background: #e5eefc; color: #275888; }
+
+.uth-brand-logo {
+    display: block;
+    width: var(--uth-logo-width, 112px);
+    max-width: 100%;
+    height: auto;
+    padding: 5px 7px;
+    border-radius: 6px;
+    background: #fff;
+    object-fit: contain;
+}
+
+.app-container select {
+    min-height: 40px;
+    border: 1px solid #b9c2c4;
+    border-radius: 8px;
+    background-color: #fff;
+    padding: 8px 10px;
+    color: #263b3d;
+}
+
+.app-container select:focus-visible {
+    outline: 2px solid #078b8e;
+    outline-offset: 2px;
+}
+
+@supports (appearance: base-select) and selector(::picker(select)) {
+    .app-container select,
+    .app-container select::picker(select) {
+        appearance: base-select;
+    }
+
+    .app-container select {
+        align-items: center;
+        gap: 8px;
+    }
+
+    .app-container select::picker-icon {
+        color: #52666a;
+    }
+
+    .app-container select::picker(select) {
+        margin-block-start: 4px;
+        max-block-size: min(320px, 55dvh);
+        border: 1px solid #b9c2c4;
+        border-radius: 8px;
+        background: #fff;
+        color: #263b3d;
+        box-shadow: 0 6px 18px #1727281f;
+    }
+
+    .app-container select option {
+        min-height: 38px;
+        padding: 8px 12px;
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+
+    .app-container select option + option {
+        border-block-start: 1px solid #252d3029;
+    }
+
+    .app-container select option:checked {
+        background: #e6f3f2;
+        color: #07595c;
+    }
+
+    .app-container select option:hover:not(:disabled),
+    .app-container select option:focus-visible {
+        background: #eef6f6;
+    }
+
+    .app-container select option::checkmark {
+        color: #066b6e;
+    }
+}

@@ -43,6 +43,8 @@ const { default: ProtectedRoute } = await server.ssrLoadModule('/src/components/
 const { default: AuthPage } = await server.ssrLoadModule('/src/pages/Auth/AuthPage.jsx');
 const { default: RecordForm } = await server.ssrLoadModule('/src/components/AdminRecords/RecordForm.jsx');
 const { default: AppRouters } = await server.ssrLoadModule('/src/routers/AppRouters.jsx');
+const { default: AdminOperations } = await server.ssrLoadModule('/src/pages/Admin/AdminOperations/AdminOperations.jsx');
+const { default: DetailModal } = await server.ssrLoadModule('/src/components/DetailModal/DetailModal.jsx');
 const e = React.createElement;
 const baseContext = { session: { user: admin }, loading: false, profileLoading: false, isAdmin: true };
 
@@ -83,12 +85,35 @@ test('recovery stays available to non-admin sessions while profile check is pend
   assert.doesNotMatch(html, /Đang kiểm tra quyền truy cập/);
 });
 
+test('admin with password-only session is sent to MFA and cannot open management pages', () => {
+  const context = { ...baseContext, isAdmin: false, mfaRequired: true };
+  assert.match(renderPage(context), /Xác minh hai bước/);
+  assert.doesNotMatch(renderPage(context), /id="password"/);
+  assert.doesNotMatch(renderGuard(context), /ADMIN_CONTENT/);
+});
+
 test('new management routes render loading states without sample rows', () => {
   for (const path of ['/manageruser', '/facilities/rooms', '/facilities/equipment']) {
     const html = renderToString(e(MemoryRouter, { initialEntries: [path] }, e(AuthContext.Provider, { value: { ...baseContext, user: admin } }, e(AppRouters))));
     assert.match(html, /Đang tải dữ liệu/);
     assert.doesNotMatch(html, /Nguyễn Văn A|Phòng Máy - H003|Máy Tính FPT Elead/);
   }
+});
+
+test('overview links to pending proposals across both asset types', () => {
+  const overview = renderToString(e(MemoryRouter, null, e(AdminOperations, { screen: 'overview' })));
+  assert.match(overview, /\?trang-thai=pending&amp;loai=all/);
+  const proposals = renderToString(e(MemoryRouter, {
+    initialEntries: ['/equipment-proposals?trang-thai=pending&loai=all'],
+  }, e(AdminOperations, { screen: 'equipmentProposals' })));
+  assert.match(proposals, /aria-current="page"[^>]*>.*?Tất cả/);
+  assert.match(proposals, /loai=equipment&amp;trang-thai=pending/);
+});
+
+test('incident detail is a named native dialog with an accessible close button', () => {
+  const html = renderToString(e(DetailModal, { name: 'Mất tiếng', title: 'Thông tin sự cố', onClose() {} }));
+  assert.match(html, /<dialog[^>]*aria-labelledby="([^"]+)"[\s\S]*<h2 id="\1">Mất tiếng<\/h2>/);
+  assert.match(html, /type="button" aria-label="Đóng chi tiết"/);
 });
 
 test('user edit does not expose password changes and locks own role/active controls', () => {
@@ -103,17 +128,43 @@ test('user edit does not expose password changes and locks own role/active contr
   assert.match(html, /không thể tự đổi vai trò/);
 });
 
+test('profile form shows only the code and faculty fields relevant to its role', () => {
+  for (const [role, code, faculty] of [
+    ['student', 'student_code', true],
+    ['teacher', 'lecturer_code', true],
+    ['technician', 'employee_code', false],
+    ['admin', null, false],
+  ]) {
+    const html = renderToString(e(RecordForm, {
+      table: 'profiles', record: { ...admin, role },
+      references: { roles: ['admin', 'student', 'teacher', 'technician'] },
+      onSave: () => {}, onClose: () => {},
+    }));
+    for (const key of ['student_code', 'lecturer_code', 'employee_code']) {
+      assert.equal(html.includes(`id="record-${key}"`), key === code);
+    }
+    assert.equal(html.includes('id="record-faculty"'), faculty);
+  }
+});
+
 test('equipment form uses real room options and schema fields without fake image/type controls', () => {
-  const html = renderToString(e(RecordForm, {
-    table: 'equipment', record: null,
+  const props = {
+    table: 'equipment',
     references: { roles: [], rooms: [{ id: 'room-db-id', name: 'Database room', is_active: true }], loading: false, error: '' },
     onSave: () => {}, onClose: () => {},
+  };
+  const shared = renderToString(e(RecordForm, { ...props, record: null }));
+  assert.match(shared, /Thiết bị dùng chung/);
+  assert.doesNotMatch(shared, /id="record-room_id"/);
+  const html = renderToString(e(RecordForm, {
+    ...props, record: { name: 'Micro', room_id: 'room-db-id', status: 'in_use' },
   }));
   assert.match(html, /value="room-db-id"/);
   assert.match(html, /Database room/);
   assert.match(html, /record-status/);
   assert.match(html, /value="available"/);
-  assert.match(html, /value="in_use"/);
+  assert.doesNotMatch(html, /value="in_use"/);
+  assert.match(html, /Chọn trạng thái mới/);
   assert.match(html, /value="broken"/);
   assert.match(html, /record-note/);
   assert.doesNotMatch(html, /type="file"|Loại Thiết Bị/);

@@ -13,15 +13,17 @@ extension TaskStatusColor on TaskStatus {
   };
 }
 
-void showTaskDetails(
+Future<void> showTaskDetails(
   BuildContext context,
   TechnicianTask task,
   VoidCallback onChanged,
-) {
-  Navigator.of(context).pushNamed<void>(
+) async {
+  var changed = false;
+  await Navigator.of(context).pushNamed<void>(
     AppRoute.technicianTask,
-    arguments: (task: task, onChanged: onChanged),
+    arguments: (task: task, onChanged: () => changed = true),
   );
+  if (context.mounted && changed) onChanged();
 }
 
 class TaskBadge extends StatelessWidget {

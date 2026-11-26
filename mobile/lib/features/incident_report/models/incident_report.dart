@@ -21,8 +21,11 @@ typedef IncidentReport = ({
   String description,
   String type,
   String asset,
+  String? assetId,
   String course,
   bool needsSupport,
   DateTime submittedAt,
   List<Uint8List> photos,
 });
+
+typedef IncidentAssetOption = ({String? id, String name, String? detail});
